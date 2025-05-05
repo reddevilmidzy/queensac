@@ -1,0 +1,10 @@
+[package]
+name = "queensac"
+authors = ["Redddy <midzy0228@gmail.com>"]
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/reddevilmidzy/queensac"
+license = "Apache-2.0"
+readme = "README.md"
+
+[dependencies]
