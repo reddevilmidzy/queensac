@@ -23,18 +23,32 @@ enum LinkCheckResult {
 }
 
 fn check_link(url: &str) -> LinkCheckResult {
-    let res = reqwest::blocking::get(url);
-    match res {
-        Ok(res) => {
-            let status = res.status();
-            if status.is_success() || status.is_redirection() {
-                LinkCheckResult::Valid
-            } else {
-                LinkCheckResult::Invalid(format!("HTTP status code: {}", status))
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    let mut attempts = 3;
+    while attempts > 0 {
+        let res = client.get(url).send();
+        match res {
+            Ok(res) => {
+                let status = res.status();
+                if status.is_success() || status.is_redirection() {
+                    return LinkCheckResult::Valid;
+                } else {
+                    return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
+                }
+            }
+            Err(e) => {
+                if attempts == 1 {
+                    return LinkCheckResult::Invalid(format!("Request error: {}", e));
+                }
             }
         }
-        Err(e) => LinkCheckResult::Invalid(format!("Request error: {}", e)),
+        attempts -= 1;
     }
+    LinkCheckResult::Invalid("Max retries exceeded".to_string())
 }
 
 fn main() {
