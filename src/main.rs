@@ -34,11 +34,11 @@ fn check_link(url: &str) -> LinkCheckResult {
         match res {
             Ok(res) => {
                 let status = res.status();
-                if status.is_success() || status.is_redirection() {
-                    return LinkCheckResult::Valid;
+                return if status.is_success() || status.is_redirection() {
+                    LinkCheckResult::Valid
                 } else {
-                    return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
-                }
+                    LinkCheckResult::Invalid(format!("HTTP status code: {}", status))
+                };
             }
             Err(e) => {
                 if attempts == 1 {
@@ -56,12 +56,8 @@ fn main() {
     let links = extract_links_from_file(file_path);
 
     for link in links {
-        let result = check_link(&link);
-        match result {
-            LinkCheckResult::Invalid(message) => {
-                println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
-            }
-            _ => {}
+        if let LinkCheckResult::Invalid(message) = check_link(&link) {
+            println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
         }
     }
 
