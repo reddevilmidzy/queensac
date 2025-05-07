@@ -67,10 +67,8 @@ async fn main() {
     }
 
     for handle in handles {
-        if let Ok((link, result)) = handle.await {
-            if let LinkCheckResult::Invalid(message) = result {
-                println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
-            }
+        if let Ok((link, LinkCheckResult::Invalid(message))) = handle.await {
+            println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
         }
     }
 
