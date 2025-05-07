@@ -1,6 +1,7 @@
 use regex::Regex;
 use std::fs;
 use std::path::Path;
+use tokio::time;
 
 fn extract_links_from_file<P: AsRef<Path>>(path: P) -> Vec<String> {
     let content = fs::read_to_string(&path).unwrap();
@@ -22,16 +23,15 @@ enum LinkCheckResult {
     Invalid(String),
 }
 
-fn check_link(url: &str) -> LinkCheckResult {
-    let client = reqwest::blocking::Client::builder()
+async fn check_link(url: &str) -> LinkCheckResult {
+    let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .unwrap();
 
     let mut attempts = 3;
     while attempts > 0 {
-        let res = client.get(url).send();
-        match res {
+        match client.get(url).send().await {
             Ok(res) => {
                 let status = res.status();
                 return if status.is_success() || status.is_redirection() {
@@ -47,16 +47,27 @@ fn check_link(url: &str) -> LinkCheckResult {
             }
         }
         attempts -= 1;
+        time::sleep(time::Duration::from_secs(1)).await;
     }
     LinkCheckResult::Invalid("Max retries exceeded".to_string())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let file_path = "example.md";
     let links = extract_links_from_file(file_path);
 
+    let mut handles = Vec::new();
     for link in links {
-        if let LinkCheckResult::Invalid(message) = check_link(&link) {
+        let handle = tokio::spawn(async move {
+            let result = check_link(&link).await;
+            (link, result)
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        if let Ok((link, LinkCheckResult::Invalid(message))) = handle.await {
             println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
         }
     }
@@ -96,11 +107,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn validate_link() {
+    #[tokio::test]
+    async fn validate_link() {
         let link = "https://redddy.com";
-        assert!(matches!(check_link(link), LinkCheckResult::Invalid(_)));
+        assert!(matches!(
+            check_link(link).await,
+            LinkCheckResult::Invalid(_)
+        ));
         let link = "https://lazypazy.tistory.com";
-        assert_eq!(check_link(link), LinkCheckResult::Valid);
+        assert_eq!(check_link(link).await, LinkCheckResult::Valid);
     }
 }
