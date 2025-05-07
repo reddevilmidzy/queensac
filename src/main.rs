@@ -8,11 +8,59 @@ fn extract_links_from_file<P: AsRef<Path>>(path: P) -> Vec<String> {
 
     url_regex
         .find_iter(&content)
-        .map(|mat| mat.as_str().to_string())
+        .map(|mat| {
+            let url = mat.as_str();
+            url.trim_end_matches(&[')', '>', '.', ',', ';'][..])
+                .to_string()
+        })
         .collect()
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum LinkCheckResult {
+    Valid,
+    Invalid(String),
+}
+
+fn check_link(url: &str) -> LinkCheckResult {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    let mut attempts = 3;
+    while attempts > 0 {
+        let res = client.get(url).send();
+        match res {
+            Ok(res) => {
+                let status = res.status();
+                return if status.is_success() || status.is_redirection() {
+                    LinkCheckResult::Valid
+                } else {
+                    LinkCheckResult::Invalid(format!("HTTP status code: {}", status))
+                };
+            }
+            Err(e) => {
+                if attempts == 1 {
+                    return LinkCheckResult::Invalid(format!("Request error: {}", e));
+                }
+            }
+        }
+        attempts -= 1;
+    }
+    LinkCheckResult::Invalid("Max retries exceeded".to_string())
+}
+
 fn main() {
+    let file_path = "example.md";
+    let links = extract_links_from_file(file_path);
+
+    for link in links {
+        if let LinkCheckResult::Invalid(message) = check_link(&link) {
+            println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
+        }
+    }
+
     println!("Sacrifice THE QUEEN!!");
 }
 
@@ -46,5 +94,13 @@ mod tests {
         // 테스트 후 파일 삭제
         fs::remove_file(test_file_path)?;
         Ok(())
+    }
+
+    #[test]
+    fn validate_link() {
+        let link = "https://redddy.com";
+        assert!(matches!(check_link(link), LinkCheckResult::Invalid(_)));
+        let link = "https://lazypazy.tistory.com";
+        assert_eq!(check_link(link), LinkCheckResult::Valid);
     }
 }
