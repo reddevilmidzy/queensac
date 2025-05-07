@@ -8,11 +8,49 @@ fn extract_links_from_file<P: AsRef<Path>>(path: P) -> Vec<String> {
 
     url_regex
         .find_iter(&content)
-        .map(|mat| mat.as_str().to_string())
+        .map(|mat| {
+            let url = mat.as_str();
+            url.trim_end_matches(&[')', '>', '.', ',', ';'][..])
+                .to_string()
+        })
         .collect()
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum LinkCheckResult {
+    Valid,
+    Invalid(String),
+}
+
+fn check_link(url: &str) -> LinkCheckResult {
+    let res = reqwest::blocking::get(url);
+    match res {
+        Ok(res) => {
+            let status = res.status();
+            if status.is_success() || status.is_redirection() {
+                LinkCheckResult::Valid
+            } else {
+                LinkCheckResult::Invalid(format!("HTTP status code: {}", status))
+            }
+        }
+        Err(e) => LinkCheckResult::Invalid(format!("Request error: {}", e)),
+    }
+}
+
 fn main() {
+    let file_path = "example.md";
+    let links = extract_links_from_file(file_path);
+
+    for link in links {
+        let result = check_link(&link);
+        match result {
+            LinkCheckResult::Invalid(message) => {
+                println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
+            }
+            _ => {}
+        }
+    }
+
     println!("Sacrifice THE QUEEN!!");
 }
 
@@ -46,5 +84,13 @@ mod tests {
         // 테스트 후 파일 삭제
         fs::remove_file(test_file_path)?;
         Ok(())
+    }
+
+    #[test]
+    fn validate_link() {
+        let link = "https://redddy.com";
+        assert!(matches!(check_link(link), LinkCheckResult::Invalid(_)));
+        let link = "https://lazypazy.tistory.com";
+        assert_eq!(check_link(link), LinkCheckResult::Valid);
     }
 }
