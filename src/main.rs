@@ -5,18 +5,14 @@ use tokio::time;
 
 fn process_path(path: &Path, url_regex: &Regex) -> Vec<String> {
     let mut links = Vec::new();
-    
+
     if path.is_file() {
         if let Ok(content) = fs::read_to_string(path) {
-            links.extend(
-                url_regex
-                    .find_iter(&content)
-                    .map(|mat| {
-                        mat.as_str()
-                            .trim_end_matches(&[')', '>', '.', ',', ';'][..])
-                            .to_string()
-                    })
-            );
+            links.extend(url_regex.find_iter(&content).map(|mat| {
+                mat.as_str()
+                    .trim_end_matches(&[')', '>', '.', ',', ';'][..])
+                    .to_string()
+            }));
         }
     } else if path.is_dir() {
         if let Ok(entries) = fs::read_dir(path) {
@@ -25,7 +21,7 @@ fn process_path(path: &Path, url_regex: &Regex) -> Vec<String> {
             }
         }
     }
-    
+
     links
 }
 
@@ -141,29 +137,29 @@ mod tests {
         if Path::new(test_dir).exists() {
             fs::remove_dir_all(test_dir)?;
         }
-        
+
         fs::create_dir_all(test_dir)?;
-        
+
         let subdir = format!("{}/subdir", test_dir);
         fs::create_dir(&subdir)?;
-        
+
         let mut file1 = File::create(format!("{}/file1.txt", test_dir))?;
         writeln!(file1, "Visit https://example1.com for more info.")?;
-        
+
         let mut file2 = File::create(format!("{}/file2.txt", subdir))?;
         writeln!(file2, "Check https://example2.com and https://example3.com")?;
-        
+
         let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
-        
+
         let links = process_path(Path::new(test_dir), &url_regex);
-        
+
         fs::remove_dir_all(test_dir)?;
-        
+
         assert_eq!(links.len(), 3);
         assert!(links.contains(&"https://example1.com".to_string()));
         assert!(links.contains(&"https://example2.com".to_string()));
         assert!(links.contains(&"https://example3.com".to_string()));
-        
+
         Ok(())
     }
 }
