@@ -34,7 +34,6 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
