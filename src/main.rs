@@ -1,20 +1,61 @@
+use git2::Repository;
 use regex::Regex;
+use std::env;
 use std::fs;
-use std::path::Path;
 use tokio::time;
 
-fn extract_links_from_file<P: AsRef<Path>>(path: P) -> Vec<String> {
-    let content = fs::read_to_string(&path).unwrap();
+struct TempDirGuard {
+    path: std::path::PathBuf,
+}
+
+impl TempDirGuard {
+    fn new(path: std::path::PathBuf) -> Result<Self, std::io::Error> {
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path)?;
+        Ok(Self { path })
+    }
+}
+
+impl Drop for TempDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+fn extract_links_from_repo_url(repo_url: &str) -> Result<Vec<String>, git2::Error> {
+    let temp_dir = env::temp_dir().join("queensac_temp_repo");
+    let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
+        git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
+    })?;
+    let repo = Repository::clone(repo_url, &temp_dir)?;
+
+    let mut all_links = Vec::new();
     let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
 
-    url_regex
-        .find_iter(&content)
-        .map(|mat| {
-            let url = mat.as_str();
-            url.trim_end_matches(&[')', '>', '.', ',', ';'][..])
-                .to_string()
-        })
-        .collect()
+    if let Ok(head) = repo.head() {
+        if let Ok(tree) = head.peel_to_tree() {
+            tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+                if let Some(_) = entry.name() {
+                    if let Ok(blob) = entry.to_object(&repo) {
+                        if let Ok(blob) = blob.peel_to_blob() {
+                            if let Ok(content) = String::from_utf8(blob.content().to_vec()) {
+                                all_links.extend(url_regex.find_iter(&content).map(|mat| {
+                                    let url = mat.as_str();
+                                    url.trim_end_matches(&[')', '>', '.', ',', ';'][..])
+                                        .to_string()
+                                }));
+                            }
+                        }
+                    }
+                }
+                git2::TreeWalkResult::Ok
+            })?;
+        }
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    Ok(all_links)
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -25,7 +66,7 @@ enum LinkCheckResult {
 
 async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(time::Duration::from_secs(10))
         .build()
         .unwrap();
 
@@ -54,8 +95,8 @@ async fn check_link(url: &str) -> LinkCheckResult {
 
 #[tokio::main]
 async fn main() {
-    let file_path = "example.md";
-    let links = extract_links_from_file(file_path);
+    let links =
+        extract_links_from_repo_url("https://github.com/reddevilmidzy/redddy-action").unwrap();
 
     let mut handles = Vec::new();
     for link in links {
@@ -78,34 +119,6 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
-
-    #[test]
-    fn extracts_links_from_file() -> Result<(), std::io::Error> {
-        // 테스트용 파일 생성
-        let test_file_path = "test_file.txt";
-        let mut file = File::create(test_file_path)?;
-
-        writeln!(
-            file,
-            "Visit https://example.com and https://rust-lang.org for more info."
-        )?;
-
-        // 함수 호출 및 결과 확인
-        let links = extract_links_from_file(test_file_path);
-        assert_eq!(
-            links,
-            vec![
-                "https://example.com".to_string(),
-                "https://rust-lang.org".to_string()
-            ]
-        );
-
-        // 테스트 후 파일 삭제
-        fs::remove_file(test_file_path)?;
-        Ok(())
-    }
 
     #[tokio::test]
     async fn validate_link() {
@@ -116,5 +129,21 @@ mod tests {
         ));
         let link = "https://lazypazy.tistory.com";
         assert_eq!(check_link(link).await, LinkCheckResult::Valid);
+    }
+
+    #[test]
+    fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
+        let repo_url = "https://github.com/reddevilmidzy/redddy-action";
+
+        let links = extract_links_from_repo_url(repo_url)?;
+
+        assert!(!links.is_empty(), "No links found in the repository");
+
+        let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
+        for link in &links {
+            assert!(url_regex.is_match(link), "Invalid URL found: {}", link);
+        }
+
+        Ok(())
     }
 }
