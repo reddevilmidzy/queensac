@@ -1,16 +1,15 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
-    Valid, 
-    Invalid(String),  
-
- }
+    Valid,
+    Invalid(String),
+}
 
 pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .unwrap();  
-    
+        .unwrap();
+
     let mut attempts = 3;
     while attempts > 0 {
         match client.get(url).send().await {
@@ -28,17 +27,13 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                 }
             }
         }
-        attempts -= 1;  
+        attempts -= 1;
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }   
-
-    
+    }
     LinkCheckResult::Invalid("Max retries exceeded".to_string())
 }
 
 #[cfg(test)]
-
-
 
 mod tests {
     use super::*;
