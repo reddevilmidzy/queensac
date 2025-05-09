@@ -8,8 +8,8 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .unwrap();
-
+        .unwrap();  
+    
     let mut attempts = 3;
     while attempts > 0 {
         match client.get(url).send().await {
