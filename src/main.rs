@@ -35,7 +35,7 @@ fn extract_links_from_repo_url(repo_url: &str) -> Result<Vec<String>, git2::Erro
     if let Ok(head) = repo.head() {
         if let Ok(tree) = head.peel_to_tree() {
             tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
-                if let Some(_) = entry.name() {
+                if entry.name().is_some() {
                     if let Ok(blob) = entry.to_object(&repo) {
                         if let Ok(blob) = blob.peel_to_blob() {
                             if let Ok(content) = String::from_utf8(blob.content().to_vec()) {
