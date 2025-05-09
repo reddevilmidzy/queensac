@@ -29,9 +29,9 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
         }
         attempts -= 1;  
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
+    }   
 
-
+    
     LinkCheckResult::Invalid("Max retries exceeded".to_string())
 }
 
