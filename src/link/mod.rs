@@ -48,4 +48,3 @@ mod tests {
         assert_eq!(check_link(link).await, LinkCheckResult::Valid);
     }
 }
- 

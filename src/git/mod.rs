@@ -64,9 +64,9 @@ mod tests {
     #[test]
     fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
         let repo_url = "https://github.com/reddevilmidzy/redddy-action";
-        
+
         let links = extract_links_from_repo_url(repo_url)?;
-        
+
         assert!(!links.is_empty(), "No links found in the repository");
 
         let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
@@ -76,4 +76,4 @@ mod tests {
 
         Ok(())
     }
-} 
+}
