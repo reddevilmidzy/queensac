@@ -1,8 +1,9 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
-    Valid,
-    Invalid(String),
-}
+    Valid, 
+    Invalid(String),  
+
+ }
 
 pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
