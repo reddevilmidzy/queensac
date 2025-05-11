@@ -36,3 +36,28 @@ jobs:
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
+
+  notify-on-failure:
+
+    needs: build
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Post failure comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `
+**Blunder!**
+Your CI made a critical mistake on the board.
+See the battle logs here: [View Logs](${runUrl})
+
+_Time to rethink your next move!_
+`
+            });
