@@ -113,10 +113,15 @@ jobs:
         with:
           script: |
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const summary = `${{ steps.read_summary.outputs.summary }}`
-              .replace(/`/g, '\\`')
-              .replace(/\$/g, '\\$')
-              .substring(0, 500);
+            
+            let summary;
+            try {
+              summary = JSON.stringify(`${{ steps.read_summary.outputs.summary }}`)
+                .slice(1, -1)
+                .substring(0, 500);
+            } catch (e) {
+              summary = "Failed to process error log";
+            }
 
             const commentBody = [
               '**?? Blunder** 😵‍💫',
