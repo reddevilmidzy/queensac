@@ -103,18 +103,16 @@ jobs:
       - name: Read failure summary
         id: read_summary
         run: |
-          SUMMARY=$(tail -n 20 summary.txt)
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$SUMMARY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          cat summary.txt > comment.txt
 
       - name: Post failure comment
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
             
-            let summary = "${{ steps.read_summary.outputs.summary }}";
+            let summary = fs.readFileSync('comment.txt', 'utf8');
             if (summary.length > 500) {
               summary = summary.substring(0, 500);
             }
