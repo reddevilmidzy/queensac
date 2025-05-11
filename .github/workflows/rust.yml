@@ -36,24 +36,32 @@ jobs:
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check formatting
-        run:
-          set -o pipefail
-          cargo fmt -- --check 2>&1 | tee fmt-log.txt
+        run: |
+          cargo fmt -- --check > fmt-log.txt 2>&1
+          FMT_STATUS=$?
+          cat fmt-log.txt
+          exit $FMT_STATUS
 
       - name: Lint with Clippy
-        run:
-          set -o pipefail
-          cargo clippy -- -D warnings 2>&1 | tee clippy-log.txt
+        run: |
+          cargo clippy -- -D warnings > clippy-log.txt 2>&1
+          CLIPPY_STATUS=$?
+          cat clippy-log.txt
+          exit $CLIPPY_STATUS
 
       - name: Build
-        run:
-          set -o pipefail
-          cargo build --verbose 2>&1 | tee build-log.txt
+        run: |
+          cargo build --verbose > build-log.txt 2>&1
+          BUILD_STATUS=$?
+          cat build-log.txt
+          exit $BUILD_STATUS
 
       - name: Run tests
-        run:
-          set -o pipefail
-          cargo test --verbose 2>&1 | tee test-log.txt
+        run: |
+          cargo test --verbose > test-log.txt 2>&1
+          TEST_STATUS=$?
+          cat test-log.txt
+          exit $TEST_STATUS
 
       - name: Capture failure reason
         if: failure()
