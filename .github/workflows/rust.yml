@@ -36,21 +36,22 @@ jobs:
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt -- --check 2>&1 | tee fmt-log.txt
 
       - name: Lint with Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy -- -D warnings 2>&1 | tee clippy-log.txt
 
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --verbose 2>&1 | tee build-log.txt
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose 2>&1 | tee test-log.txt
 
       - name: Capture failure reason
         if: failure()
         run: |
-          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt | tee summary.txt
+          cat fmt-log.txt clippy-log.txt build-log.txt test-log.txt > full-log.txt
+          tail -n 20 full-log.txt > summary.txt
 
       - name: Upload failure summary
         if: failure()
