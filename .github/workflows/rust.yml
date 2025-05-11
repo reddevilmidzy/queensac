@@ -66,17 +66,31 @@ jobs:
       - name: Capture failure reason
         if: failure()
         run: |
-          echo "=== Formatting Log ===" > full-log.txt
-          [ -f fmt-log.txt ] && cat fmt-log.txt >> full-log.txt || echo "No formatting log available" >> full-log.txt
+          echo "" > full-log.txt
           
-          echo -e "\n=== Clippy Log ===" >> full-log.txt
-          [ -f clippy-log.txt ] && cat clippy-log.txt >> full-log.txt || echo "No clippy log available" >> full-log.txt
+          if [ -f fmt-log.txt ]; then
+            echo "=== Formatting Log ===" >> full-log.txt
+            cat fmt-log.txt >> full-log.txt
+            echo -e "\n" >> full-log.txt
+          fi
           
-          echo -e "\n=== Build Log ===" >> full-log.txt
-          [ -f build-log.txt ] && cat build-log.txt >> full-log.txt || echo "No build log available" >> full-log.txt
+          if [ -f clippy-log.txt ]; then
+            echo "=== Clippy Log ===" >> full-log.txt
+            cat clippy-log.txt >> full-log.txt
+            echo -e "\n" >> full-log.txt
+          fi
           
-          echo -e "\n=== Test Log ===" >> full-log.txt
-          [ -f test-log.txt ] && cat test-log.txt >> full-log.txt || echo "No test log available" >> full-log.txt
+          if [ -f build-log.txt ]; then
+            echo "=== Build Log ===" >> full-log.txt
+            cat build-log.txt >> full-log.txt
+            echo -e "\n" >> full-log.txt
+          fi
+          
+          if [ -f test-log.txt ]; then
+            echo "=== Test Log ===" >> full-log.txt
+            cat test-log.txt >> full-log.txt
+            echo -e "\n" >> full-log.txt
+          fi
           
           tail -n 20 full-log.txt > summary.txt
 
