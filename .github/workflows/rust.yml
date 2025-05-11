@@ -28,19 +28,32 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache Cargo build
         uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Check formatting
         run: cargo fmt -- --check
+
       - name: Lint with Clippy
         run: cargo clippy -- -D warnings
+
       - name: Build
         run: cargo build --verbose
+
       - name: Run tests
         run: cargo test --verbose
+
+      - name: Capture failure reason
+        if: failure()
+        run: |
+          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt | tee summary.txt
+          echo "FAILURE_SUMMARY<<EOF" >> $GITHUB_ENV
+          tail -n 20 summary.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
   notify-on-failure:
 
@@ -54,14 +67,21 @@ jobs:
         with:
           script: |
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const summary = process.env.FAILURE_SUMMARY || 'Unknown error.';
+            const trimmed = summary.length > 500 ? summary.slice(0, 500) + '...' : summary;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: [
-                '**Blunder!** 😵‍💫',
-                '',
+                '**?? Blunder** 😵‍💫',
                 'Your CI made a critical mistake on the board.',
+                '',
+                `❌ **Reason (excerpt):**`,
+                '',
+                trimmed,
+                '',
                 `See the battle logs here: [View Logs](${runUrl})`,
                 '',
                 '_Time to rethink your next move!_'
