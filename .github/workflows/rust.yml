@@ -50,10 +50,14 @@ jobs:
       - name: Capture failure reason
         if: failure()
         run: |
-          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt | tee summary.txt
-          echo "FAILURE_SUMMARY<<EOF" >> $GITHUB_ENV
-          tail -n 20 summary.txt >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt > summary.txt
+
+      - name: Upload failure summary
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-summary
+          path: summary.txt
 
   notify-on-failure:
 
@@ -62,13 +66,26 @@ jobs:
     if: failure() && github.event_name == 'pull_request'
 
     steps:
+      - name: Download failure summary
+        uses: actions/download-artifact@v4
+        with:
+          name: failure-summary
+          path: .
+
+      - name: Read failure summary
+        id: read_summary
+        run: |
+          SUMMARY=$(cat summary.txt)
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Post failure comment
         uses: actions/github-script@v7
         with:
           script: |
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const summary = process.env.FAILURE_SUMMARY || 'Unknown error.';
-            const trimmed = summary.length > 500 ? summary.slice(0, 500) + '...' : summary;
+            const summary = `${{ steps.read_summary.outputs.summary }}`.substring(0, 500);
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -80,7 +97,7 @@ jobs:
                 '',
                 `❌ **Reason (excerpt):**`,
                 '',
-                trimmed,
+                summary,
                 '',
                 `See the battle logs here: [View Logs](${runUrl})`,
                 '',
