@@ -66,7 +66,18 @@ jobs:
       - name: Capture failure reason
         if: failure()
         run: |
-          cat fmt-log.txt clippy-log.txt build-log.txt test-log.txt > full-log.txt
+          echo "=== Formatting Log ===" > full-log.txt
+          [ -f fmt-log.txt ] && cat fmt-log.txt >> full-log.txt || echo "No formatting log available" >> full-log.txt
+          
+          echo -e "\n=== Clippy Log ===" >> full-log.txt
+          [ -f clippy-log.txt ] && cat clippy-log.txt >> full-log.txt || echo "No clippy log available" >> full-log.txt
+          
+          echo -e "\n=== Build Log ===" >> full-log.txt
+          [ -f build-log.txt ] && cat build-log.txt >> full-log.txt || echo "No build log available" >> full-log.txt
+          
+          echo -e "\n=== Test Log ===" >> full-log.txt
+          [ -f test-log.txt ] && cat test-log.txt >> full-log.txt || echo "No test log available" >> full-log.txt
+          
           tail -n 20 full-log.txt > summary.txt
 
       - name: Upload failure summary
