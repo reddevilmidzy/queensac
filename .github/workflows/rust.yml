@@ -113,27 +113,32 @@ jobs:
         with:
           script: |
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const summary = `${{ steps.read_summary.outputs.summary }}`.substring(0, 500);
+            const summary = `${{ steps.read_summary.outputs.summary }}`
+              .replace(/`/g, '\\`')
+              .replace(/\$/g, '\\$')
+              .substring(0, 500);
+
+            const commentBody = [
+              '**?? Blunder** 😵‍💫',
+              'Your CI made a critical mistake on the board.',
+              '',
+              '<details>',
+              '<summary><b>❌ Failure Details</b></summary>',
+              '',
+              '```',
+              summary,
+              '```',
+              '',
+              '</details>',
+              '',
+              `See the full battle logs here: [View Logs](${runUrl})`,
+              '',
+              '_Time to rethink your next move!_'
+            ].join('\n');
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: [
-                '**?? Blunder** 😵‍💫',
-                'Your CI made a critical mistake on the board.',
-                '',
-                '<details>',
-                '<summary>❌ **Failure Details**</summary>',
-                '',
-                '```',
-                summary,
-                '```',
-                '',
-                '</details>',
-                '',
-                `See the full battle logs here: [View Logs](${runUrl})`,
-                '',
-                '_Time to rethink your next move!_'
-              ].join('\n')
+              body: commentBody
             });
