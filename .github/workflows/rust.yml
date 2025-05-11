@@ -123,11 +123,16 @@ jobs:
                 '**?? Blunder** 😵‍💫',
                 'Your CI made a critical mistake on the board.',
                 '',
-                `❌ **Reason (excerpt):**`,
+                '<details>',
+                '<summary>❌ **Failure Details**</summary>',
                 '',
+                '```',
                 summary,
+                '```',
                 '',
-                `See the battle logs here: [View Logs](${runUrl})`,
+                '</details>',
+                '',
+                `See the full battle logs here: [View Logs](${runUrl})`,
                 '',
                 '_Time to rethink your next move!_'
               ].join('\n')
