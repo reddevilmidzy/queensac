@@ -71,25 +71,24 @@ jobs:
           if [ -f fmt-log.txt ]; then
             echo "=== Formatting Log ===" >> full-log.txt
             cat fmt-log.txt >> full-log.txt
-            echo -e "\n" >> full-log.txt
           fi
           
           if [ -f clippy-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
             echo "=== Clippy Log ===" >> full-log.txt
             cat clippy-log.txt >> full-log.txt
-            echo -e "\n" >> full-log.txt
           fi
           
           if [ -f build-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
             echo "=== Build Log ===" >> full-log.txt
             cat build-log.txt >> full-log.txt
-            echo -e "\n" >> full-log.txt
           fi
           
           if [ -f test-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
             echo "=== Test Log ===" >> full-log.txt
             cat test-log.txt >> full-log.txt
-            echo -e "\n" >> full-log.txt
           fi
           
           tail -n 20 full-log.txt > summary.txt
