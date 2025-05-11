@@ -58,10 +58,12 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body:
-                "**Blunder!**
-                Your CI made a critical mistake on the board.
-                See the battle logs here: [View Logs](${runUrl})
-
-                _Time to rethink your next move!_"
+              body: [
+                '**Blunder!** 😵‍💫',
+                '',
+                'Your CI made a critical mistake on the board.',
+                `See the battle logs here: [View Logs](${runUrl})`,
+                '',
+                '_Time to rethink your next move!_'
+              ].join('\n')
             });
