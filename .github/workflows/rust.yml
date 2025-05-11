@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -23,16 +28,131 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Cache Cargo build
         uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: |
+          cargo fmt -- --check > fmt-log.txt 2>&1
+          FMT_STATUS=$?
+          cat fmt-log.txt
+          exit $FMT_STATUS
+
       - name: Lint with Clippy
-        run: cargo clippy -- -D warnings
+        run: |
+          cargo clippy -- -D warnings > clippy-log.txt 2>&1
+          CLIPPY_STATUS=$?
+          cat clippy-log.txt
+          exit $CLIPPY_STATUS
+
       - name: Build
-        run: cargo build --verbose
+        run: |
+          cargo build --verbose > build-log.txt 2>&1
+          BUILD_STATUS=$?
+          cat build-log.txt
+          exit $BUILD_STATUS
+
       - name: Run tests
-        run: cargo test --verbose
+        run: |
+          cargo test --verbose > test-log.txt 2>&1
+          TEST_STATUS=$?
+          cat test-log.txt
+          exit $TEST_STATUS
+
+      - name: Capture failure reason
+        if: failure()
+        run: |
+          echo "" > full-log.txt
+          
+          if [ -f fmt-log.txt ]; then
+            echo "=== Formatting Log ===" >> full-log.txt
+            cat fmt-log.txt >> full-log.txt
+          fi
+          
+          if [ -f clippy-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
+            echo "=== Clippy Log ===" >> full-log.txt
+            cat clippy-log.txt >> full-log.txt
+          fi
+          
+          if [ -f build-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
+            echo "=== Build Log ===" >> full-log.txt
+            cat build-log.txt >> full-log.txt
+          fi
+          
+          if [ -f test-log.txt ]; then
+            [ -s full-log.txt ] && echo "" >> full-log.txt
+            echo "=== Test Log ===" >> full-log.txt
+            cat test-log.txt >> full-log.txt
+          fi
+          
+          tail -n 20 full-log.txt > summary.txt
+
+      - name: Upload failure summary
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-summary
+          path: summary.txt
+
+  notify-on-failure:
+
+    needs: build
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Download failure summary
+        uses: actions/download-artifact@v4
+        with:
+          name: failure-summary
+          path: .
+
+      - name: Read failure summary
+        id: read_summary
+        run: |
+          cat summary.txt > comment.txt
+
+      - name: Post failure comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            
+            let summary = fs.readFileSync('comment.txt', 'utf8');
+            // Truncate the summary to 500 characters to ensure the comment remains concise
+            // and avoids exceeding potential length constraints for GitHub comments.
+            if (summary.length > 500) {
+              summary = summary.substring(0, 500);
+            }
+
+            const commentBody = [
+              '**?? Blunder** 😵‍💫',
+              'Your CI made a critical mistake on the board.',
+              '',
+              '<details>',
+              '<summary><b>❌ Failure Details</b></summary>',
+              '',
+              '```',
+              summary,
+              '```',
+              '',
+              '</details>',
+              '',
+              `See the full battle logs here: [View Logs](${runUrl})`,
+              '',
+              '_Time to rethink your next move!_'
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
