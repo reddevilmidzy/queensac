@@ -9,5 +9,5 @@ use std::time::Duration;
 async fn main() {
     let repo_url = "https://github.com/reddevilmidzy/redddy-action";
     let interval_duration = Duration::from_secs(60);
-    check_repository_links(repo_url, interval_duration).await;
+    check_repository_links(repo_url, interval_duration).await;  
 }
