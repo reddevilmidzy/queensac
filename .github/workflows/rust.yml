@@ -50,7 +50,7 @@ jobs:
       - name: Capture failure reason
         if: failure()
         run: |
-          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt > summary.txt
+          tail -n 20 $GITHUB_WORKSPACE/../_temp/_runner_script_log.txt | tee summary.txt
 
       - name: Upload failure summary
         if: failure()
@@ -75,7 +75,7 @@ jobs:
       - name: Read failure summary
         id: read_summary
         run: |
-          SUMMARY=$(cat summary.txt)
+          SUMMARY=$(tail -n 20 summary.txt)
           echo "summary<<EOF" >> $GITHUB_OUTPUT
           echo "$SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
