@@ -960,6 +960,8 @@ dependencies = [
  "git2",
  "regex",
  "reqwest",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 
