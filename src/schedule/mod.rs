@@ -1,4 +1,6 @@
-// 여기서 link, git 모듈을 사용하는 것이 맞는지 확인해야 함
+// TODO: Review the usage of the 'link' and 'git' modules in this file.
+//       Verify if their usage aligns with the intended design and functionality.
+//       If necessary, refer to issue #123 for further context and discussion.
 use crate::git;
 use crate::link::{LinkCheckResult, check_link};
 use chrono::Local;
