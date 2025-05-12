@@ -1,8 +1,5 @@
-mod git;
-mod link;
-mod schedule;
+use queensac::check_repository_links;
 
-use crate::schedule::check_repository_links;
 use axum::{Router, routing::get};
 use std::time::Duration;
 
