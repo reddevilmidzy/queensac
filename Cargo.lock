@@ -958,11 +958,13 @@ dependencies = [
  "axum",
  "chrono",
  "git2",
+ "once_cell",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
