@@ -45,6 +45,8 @@ pub async fn check_repository_links(repo_url: &str, interval_duration: Duration)
                 }
                 println!("링크 확인 완료. 다음 간격 대기...");
             },
+            // This branch listens for the `CancellationToken` to be triggered,
+            // allowing the periodic check loop to terminate cleanly upon cancellation.
             _ = token.cancelled() => {
                 println!("[{}] 체크 작업이 취소되었습니다.", repo_url);
                 break;
