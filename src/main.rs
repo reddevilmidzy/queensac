@@ -1,8 +1,8 @@
-use queensac::check_repository_links;
+use queensac::{cancel_repository_checker, check_repository_links};
 
 use axum::{
     Json, Router,
-    routing::{get, post},
+    routing::{delete, get, post},
     serve,
 };
 use serde::Deserialize;
@@ -32,6 +32,16 @@ async fn check_handler(Json(payload): Json<CheckRequest>) -> &'static str {
     "Repository checker started"
 }
 
+#[derive(Deserialize)]
+struct CancelRequest {
+    repo_url: String,
+}
+
+async fn cancel_handler(Json(payload): Json<CancelRequest>) -> &'static str {
+    cancel_repository_checker(&payload.repo_url).await;
+    "Repository checker cancelled"
+}
+
 #[tokio::main]
 async fn main() {
     let app = app();
@@ -45,4 +55,5 @@ fn app() -> Router {
         .route("/", get(|| async { "Sacrifice the Queen!!" }))
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
+        .route("/cancel", delete(cancel_handler))
 }
