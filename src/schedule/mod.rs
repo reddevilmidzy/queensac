@@ -3,30 +3,34 @@
 //       If necessary, refer to issue #123 for further context and discussion.
 use crate::git;
 use crate::link::{LinkCheckResult, check_link};
-use chrono::Local;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
+use tracing::{error, info, instrument, warn};
 
 static REPO_TASKS: Lazy<Mutex<HashMap<String, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+#[instrument(skip(interval_duration), fields(repo_url = repo_url))]
 pub async fn check_repository_links(repo_url: &str, interval_duration: Duration) {
     let token = CancellationToken::new();
     {
         let mut map = REPO_TASKS.lock().unwrap();
         map.insert(repo_url.to_string(), token.clone());
     }
+    info!("Starting repository link checker for {}", repo_url);
+
     let mut interval = tokio::time::interval(interval_duration);
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                let current_time = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                println!("[{}] 링크 확인 중", current_time);
+                info!("Checking links for repository: {}", repo_url);
+
                 match git::extract_links_from_repo_url(repo_url) {
                     Ok(links) => {
+                        info!("Found {} links to check", links.len());
                         let mut handles = Vec::new();
                         for link in links {
                             let handle = tokio::spawn(async move {
@@ -37,26 +41,27 @@ pub async fn check_repository_links(repo_url: &str, interval_duration: Duration)
                         }
                         for handle in handles {
                             if let Ok((link, LinkCheckResult::Invalid(message))) = handle.await {
-                                println!("유효하지 않은 링크: '{}', 실패 원인: {}", link, message);
+                                warn!("Invalid link found: '{}', reason: {}", link, message);
                             }
                         }
                     }
-                    Err(e) => println!("Repository 처리 중 오류 발생: {}", e),
+                    Err(e) => error!("Error processing repository: {}", e),
                 }
-                println!("링크 확인 완료. 다음 간격 대기...");
+                info!("Link check completed for {}. Waiting for next interval...", repo_url);
             },
-            // This branch listens for the `CancellationToken` to be triggered,
-            // allowing the periodic check loop to terminate cleanly upon cancellation.
             _ = token.cancelled() => {
-                println!("[{}] 체크 작업이 취소되었습니다.", repo_url);
+                info!("Repository checker cancelled for: {}", repo_url);
                 break;
             }
         }
     }
     let mut map = REPO_TASKS.lock().unwrap();
     map.remove(repo_url);
+    info!("Repository checker cleanup completed for: {}", repo_url);
 }
 
+// FIXME: 지금 리턴 타입이 없는데, Result를 반환해는게 나은가. 지금은 그냥 로그로 출력하고 있음.
+#[instrument(skip(), fields(repo_url = repo_url))]
 pub async fn cancel_repository_checker(repo_url: &str) {
     let token = {
         let mut map = REPO_TASKS.lock().unwrap();
@@ -64,9 +69,9 @@ pub async fn cancel_repository_checker(repo_url: &str) {
     };
     if let Some(token) = token {
         token.cancel();
-        println!("[{}] 체크 작업 취소 요청됨.", repo_url);
+        info!("Cancellation requested for repository: {}", repo_url);
     } else {
-        println!("[{}] 체크 작업이 존재하지 않습니다.", repo_url);
+        warn!("No active checker found for repository: {}", repo_url);
     }
 }
 
