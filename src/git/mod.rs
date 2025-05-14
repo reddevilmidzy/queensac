@@ -95,7 +95,13 @@ mod tests {
 
         let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
         for link in &links {
-            assert!(url_regex.is_match(link), "Invalid URL found: {}", link);
+            assert!(
+                url_regex.is_match(&link.url),
+                "Invalid URL found: {} at {}:{}",
+                link.url,
+                link.file_path,
+                link.line_number
+            );
         }
 
         Ok(())
