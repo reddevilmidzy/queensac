@@ -21,4 +21,4 @@ once_cell = "1.18"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 shuttle-axum = "0.54.0"
-shuttle-runtime = { version = "0.54.0", default-features = false }
+shuttle-runtime = { version = "0.54.0", default-features = false } # https://docs.shuttle.dev/docs/logs#default-tracing-subscriber
