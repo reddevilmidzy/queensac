@@ -1,30 +1,58 @@
 use git2::Repository;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 
-pub fn extract_links_from_repo_url(repo_url: &str) -> Result<Vec<String>, git2::Error> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Represents a hyperlink found in a repository, along with its location.
+pub struct LinkInfo {
+    /// The URL string. This should be a valid HTTP or HTTPS URL.
+    pub url: String,
+    /// The relative file path where the URL was found.
+    pub file_path: String,
+    /// The 1-based line number in the file where the URL was found.
+    pub line_number: usize,
+}
+
+pub fn extract_links_from_repo_url(repo_url: &str) -> Result<Vec<LinkInfo>, git2::Error> {
     let temp_dir = env::temp_dir().join("queensac_temp_repo");
     let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
         git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
     })?;
     let repo = Repository::clone(repo_url, &temp_dir)?;
 
-    let mut all_links = Vec::new();
+    let mut all_links = Vec::new(); // TODO: HashSet 사용해서 중복 제거 최적화.
     let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
 
     if let Ok(head) = repo.head() {
         if let Ok(tree) = head.peel_to_tree() {
-            tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
-                if entry.name().is_some() {
+            tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+                if let Some(name) = entry.name() {
+                    let file_path = if dir.is_empty() {
+                        name.to_string()
+                    } else {
+                        format!("{}/{}", dir, name)
+                    };
+
                     if let Ok(blob) = entry.to_object(&repo) {
                         if let Ok(blob) = blob.peel_to_blob() {
                             if let Ok(content) = String::from_utf8(blob.content().to_vec()) {
-                                all_links.extend(url_regex.find_iter(&content).map(|mat| {
-                                    let url = mat.as_str();
-                                    url.trim_end_matches(&[')', '>', '.', ',', ';'][..])
-                                        .to_string()
-                                }));
+                                // 각 라인별로 링크를 찾기
+                                for (line_num, line) in content.lines().enumerate() {
+                                    for mat in url_regex.find_iter(line) {
+                                        let url = mat
+                                            .as_str()
+                                            .trim_end_matches(&[')', '>', '.', ',', ';'][..])
+                                            .to_string();
+
+                                        all_links.push(LinkInfo {
+                                            url,
+                                            file_path: file_path.clone(),
+                                            line_number: line_num + 1, // 1-based line number
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
@@ -71,7 +99,13 @@ mod tests {
 
         let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
         for link in &links {
-            assert!(url_regex.is_match(link), "Invalid URL found: {}", link);
+            assert!(
+                url_regex.is_match(&link.url),
+                "Invalid URL found: {} at {}:{}",
+                link.url,
+                link.file_path,
+                link.line_number
+            );
         }
 
         Ok(())

@@ -34,14 +34,20 @@ pub async fn check_repository_links(repo_url: &str, interval_duration: Duration)
                         let mut handles = Vec::new();
                         for link in links {
                             let handle = tokio::spawn(async move {
-                                let result = check_link(&link).await;
+                                let result = check_link(&link.url).await;
                                 (link, result)
                             });
                             handles.push(handle);
                         }
                         for handle in handles {
                             if let Ok((link, LinkCheckResult::Invalid(message))) = handle.await {
-                                warn!("Invalid link found: '{}', reason: {}", link, message);
+                                warn!(
+                                    "Invalid link found: '{}' at {}:{}, reason: {}",
+                                    link.url,
+                                    link.file_path,
+                                    link.line_number,
+                                    message
+                                );
                             }
                         }
                     }
