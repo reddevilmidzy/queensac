@@ -5,9 +5,13 @@ use std::env;
 use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Represents a hyperlink found in a repository, along with its location.
 pub struct LinkInfo {
+    /// The URL string. This should be a valid HTTP or HTTPS URL.
     pub url: String,
+    /// The relative file path where the URL was found.
     pub file_path: String,
+    /// The 1-based line number in the file where the URL was found.
     pub line_number: usize,
 }
 
