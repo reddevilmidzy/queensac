@@ -6,7 +6,8 @@ use axum::{
 };
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::info;
+use tracing::{Level, info};
+use tracing_subscriber::FmtSubscriber;
 
 async fn spawn_repository_checker(repo_url: &str, interval: Duration) {
     let repo_url = repo_url.to_string();
@@ -49,6 +50,18 @@ async fn cancel_handler(Json(payload): Json<CancelRequest>) -> &'static str {
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
+    FmtSubscriber::builder()
+        .with_max_level(Level::INFO)
+        .with_target(false)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_names(true)
+        .with_level(true)
+        .with_ansi(true)
+        .pretty()
+        .init();
+
     info!("Starting Queensac service...");
 
     let app = app();
