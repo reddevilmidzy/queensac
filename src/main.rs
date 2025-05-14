@@ -3,14 +3,10 @@ use queensac::{cancel_repository_checker, check_repository_links};
 use axum::{
     Json, Router,
     routing::{delete, get, post},
-    serve,
 };
 use serde::Deserialize;
 use std::time::Duration;
-use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
-use tracing::{Level, info};
-use tracing_subscriber::FmtSubscriber;
+use tracing::info;
 
 async fn spawn_repository_checker(repo_url: &str, interval: Duration) {
     let repo_url = repo_url.to_string();
@@ -51,27 +47,13 @@ async fn cancel_handler(Json(payload): Json<CancelRequest>) -> &'static str {
     "Repository checker cancelled"
 }
 
-#[tokio::main]
-async fn main() {
-    FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .with_target(false)
-        .with_thread_ids(true)
-        .with_file(true)
-        .with_line_number(true)
-        .with_thread_names(true)
-        .with_level(true)
-        .with_ansi(true)
-        .pretty()
-        .init();
-
+#[shuttle_runtime::main]
+async fn main() -> shuttle_axum::ShuttleAxum {
     info!("Starting Queensac service...");
 
     let app = app();
-    let listener = TcpListener::bind("localhost:3000").await.unwrap();
-    info!("Server listening on localhost:3000");
 
-    serve(listener, app).await.unwrap();
+    Ok(app.into())
 }
 
 fn app() -> Router {
@@ -80,5 +62,4 @@ fn app() -> Router {
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
         .route("/cancel", delete(cancel_handler))
-        .layer(TraceLayer::new_for_http())
 }
