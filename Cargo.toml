@@ -21,3 +21,5 @@ once_cell = "1.18"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.5", features = ["trace"] }
+shuttle-axum = "0.54.0"
+shuttle-runtime = "0.54.0"
