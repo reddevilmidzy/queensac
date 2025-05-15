@@ -1,0 +1,16 @@
+name: Shuttle Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: shuttle-hq/deploy-action@v2
+        with:
+          shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
+          project-id: ${{ secrets.SHUTTLE_PROJECT_ID }}
