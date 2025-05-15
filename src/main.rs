@@ -2,20 +2,29 @@ use queensac::{cancel_repository_checker, check_repository_links};
 
 use axum::{
     Json, Router,
+    http::StatusCode,
     routing::{delete, get, post},
 };
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::{Level, info};
+use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
-async fn spawn_repository_checker(repo_url: &str, branch: Option<String>, interval: Duration) {
+async fn spawn_repository_checker(
+    repo_url: &str,
+    branch: Option<String>,
+    interval: Duration,
+) -> Result<(), String> {
     let repo_url = repo_url.to_string();
     info!("Spawning repository checker for {}", repo_url);
     tokio::spawn(async move {
         info!("Starting repository link check for {}", repo_url);
-        check_repository_links(&repo_url, branch, interval).await;
+        if let Err(e) = check_repository_links(&repo_url, branch, interval).await {
+            return Err(e.to_string());
+        }
+        Ok(())
     });
+    Ok(())
 }
 
 async fn health_check() -> &'static str {
@@ -29,24 +38,31 @@ struct CheckRequest {
     interval_secs: u64,
 }
 
-async fn check_handler(Json(payload): Json<CheckRequest>) -> &'static str {
+async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str, StatusCode> {
     info!(
         "Received check request for repository: {}, branch: {:?}",
         payload.repo_url, payload.branch
     );
     let interval = Duration::from_secs(payload.interval_secs);
-    spawn_repository_checker(&payload.repo_url, payload.branch, interval).await;
-    "Repository checker started"
+    if let Err(e) = spawn_repository_checker(&payload.repo_url, payload.branch, interval).await {
+        error!("Failed to spawn repository checker: {}", e);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok("Repository checker started")
 }
 
 #[derive(Deserialize)]
 struct CancelRequest {
     repo_url: String,
+    branch: Option<String>,
 }
 
-async fn cancel_handler(Json(payload): Json<CancelRequest>) -> &'static str {
-    cancel_repository_checker(&payload.repo_url).await;
-    "Repository checker cancelled"
+async fn cancel_handler(Json(payload): Json<CancelRequest>) -> Result<&'static str, StatusCode> {
+    if let Err(e) = cancel_repository_checker(&payload.repo_url, payload.branch).await {
+        error!("Repository checker failed: {}", e);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok("Repository checker cancelled")
 }
 
 #[shuttle_runtime::main]
