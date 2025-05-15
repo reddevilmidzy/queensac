@@ -16,12 +16,42 @@ pub struct LinkInfo {
     pub line_number: usize,
 }
 
-pub fn extract_links_from_repo_url(repo_url: &str) -> Result<HashSet<LinkInfo>, git2::Error> {
+pub fn extract_links_from_repo_url(
+    repo_url: &str,
+    branch: Option<String>,
+) -> Result<HashSet<LinkInfo>, git2::Error> {
     let temp_dir = env::temp_dir().join("queensac_temp_repo");
     let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
         git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
     })?;
     let repo = Repository::clone(repo_url, &temp_dir)?;
+
+    // 체크아웃 브랜치
+    if let Some(branch_name) = branch {
+        let remote_branch_name = format!("origin/{}", branch_name);
+        let mut remote = repo.find_remote("origin")?;
+        // 특정 브랜치만 fetch
+        let refspec = format!(
+            "refs/heads/{}:refs/remotes/origin/{}",
+            branch_name, branch_name
+        );
+        remote.fetch(&[&refspec], None, None)?;
+
+        if let Ok(reference) = repo.find_reference(&format!("refs/remotes/{}", remote_branch_name))
+        {
+            // Create a local branch tracking the remote branch
+            let commit = reference.peel_to_commit()?;
+            let branch = repo.branch(&branch_name, &commit, false)?;
+            repo.set_head(branch.get().name().unwrap())?;
+            repo.checkout_head(None)?;
+        } else {
+            // 오류 상황. 브랜치 찾을 수 없음
+            return Err(git2::Error::from_str(&format!(
+                "Branch not found: {}",
+                branch_name
+            )));
+        }
+    }
 
     let mut all_links = HashSet::new();
     let url_regex = Regex::new(r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
@@ -94,7 +124,7 @@ mod tests {
     fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
         let repo_url = "https://github.com/reddevilmidzy/redddy-action";
 
-        let links = extract_links_from_repo_url(repo_url)?;
+        let links = extract_links_from_repo_url(repo_url, None)?;
 
         assert!(!links.is_empty(), "No links found in the repository");
 
