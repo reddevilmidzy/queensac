@@ -18,7 +18,7 @@ fn generate_dir_name(repo_url: &str, branch: Option<String>) -> String {
         "queensac_temp_repo/{}/{}/{}",
         user_name,
         repo_name,
-        branch.unwrap_or_default()
+        branch.unwrap_or("default".to_string())
     )
 }
 
