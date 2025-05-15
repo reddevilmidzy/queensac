@@ -7,6 +7,21 @@ use std::fs;
 
 const REGEX_URL: &str = r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)";
 
+/// Generate a unique directory name using repo owner and name
+fn generate_dir_name(repo_url: &str, branch: Option<String>) -> String {
+    let parts: Vec<&str> = repo_url
+        .trim_start_matches("https://github.com/")
+        .split('/')
+        .collect();
+    let (user_name, repo_name) = (parts[0], parts[1]);
+    format!(
+        "queensac_temp_repo/{}/{}/{}",
+        user_name,
+        repo_name,
+        branch.unwrap_or_default()
+    )
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Represents a hyperlink found in a repository, along with its location.
 pub struct LinkInfo {
@@ -32,11 +47,37 @@ impl std::hash::Hash for LinkInfo {
     }
 }
 
+/// Checkout a specific branch in the repository
+fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), git2::Error> {
+    let remote_branch_name = format!("origin/{}", branch_name);
+    let mut remote = repo.find_remote("origin")?;
+
+    // 특정 브랜치만 fetch
+    let refspec = format!(
+        "refs/heads/{}:refs/remotes/origin/{}",
+        branch_name, branch_name
+    );
+    remote.fetch(&[&refspec], None, None)?;
+
+    let remote_ref = format!("refs/remotes/{}", remote_branch_name);
+    let reference = repo
+        .find_reference(&remote_ref)
+        .map_err(|_| git2::Error::from_str(&format!("Branch not found: {}", branch_name)))?;
+
+    // Create a local branch tracking the remote branch
+    let commit = reference.peel_to_commit()?;
+    let branch = repo.branch(branch_name, &commit, false)?;
+    repo.set_head(branch.get().name().unwrap())?;
+    repo.checkout_head(None)?;
+
+    Ok(())
+}
+
 pub fn extract_links_from_repo_url(
     repo_url: &str,
     branch: Option<String>,
 ) -> Result<HashSet<LinkInfo>, git2::Error> {
-    let temp_dir = env::temp_dir().join("queensac_temp_repo");
+    let temp_dir = env::temp_dir().join(generate_dir_name(repo_url, branch.clone()));
     let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
         git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
     })?;
@@ -44,29 +85,7 @@ pub fn extract_links_from_repo_url(
 
     // 체크아웃 브랜치
     if let Some(branch_name) = branch {
-        let remote_branch_name = format!("origin/{}", branch_name);
-        let mut remote = repo.find_remote("origin")?;
-        // 특정 브랜치만 fetch
-        let refspec = format!(
-            "refs/heads/{}:refs/remotes/origin/{}",
-            branch_name, branch_name
-        );
-        remote.fetch(&[&refspec], None, None)?;
-
-        if let Ok(reference) = repo.find_reference(&format!("refs/remotes/{}", remote_branch_name))
-        {
-            // Create a local branch tracking the remote branch
-            let commit = reference.peel_to_commit()?;
-            let branch = repo.branch(&branch_name, &commit, false)?;
-            repo.set_head(branch.get().name().unwrap())?;
-            repo.checkout_head(None)?;
-        } else {
-            // 오류 상황. 브랜치 찾을 수 없음
-            return Err(git2::Error::from_str(&format!(
-                "Branch not found: {}",
-                branch_name
-            )));
-        }
+        checkout_branch(&repo, &branch_name)?;
     }
 
     let mut all_links = HashSet::new();
@@ -144,8 +163,10 @@ impl Drop for TempDirGuard {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
         let repo_url = "https://github.com/reddevilmidzy/redddy-action";
 
@@ -168,6 +189,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_find_link_in_content_duplicates() {
         let content = r#"
         https://example.com
@@ -200,6 +222,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_link_info_uniqueness() {
         let mut links = HashSet::new();
 
@@ -233,5 +256,22 @@ mod tests {
 
         // Should now have two entries because URLs are different
         assert_eq!(links.len(), 2, "Expected two unique URL entries");
+    }
+
+    #[test]
+    #[serial]
+    fn test_branch_not_found() {
+        let repo_url = "https://github.com/reddevilmidzy/woowalog";
+        let non_existent_branch = "non-existent-branch";
+
+        let result = extract_links_from_repo_url(repo_url, Some(non_existent_branch.to_string()));
+
+        assert!(result.is_err(), "Expected error for non-existent branch");
+        if let Err(e) = result {
+            assert!(
+                e.message().contains(non_existent_branch),
+                "Error message should contain the branch name"
+            );
+        }
     }
 }
