@@ -10,7 +10,13 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
 
-static REPO_TASKS: Lazy<Mutex<HashMap<String, CancellationToken>>> =
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+struct RepoKey {
+    repo_url: String,
+    branch: String,
+}
+
+static REPO_TASKS: Lazy<Mutex<HashMap<RepoKey, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[instrument(skip(interval_duration), fields(repo_url = repo_url))]
@@ -18,21 +24,41 @@ pub async fn check_repository_links(
     repo_url: &str,
     branch: Option<String>,
     interval_duration: Duration,
-) {
+) -> Result<(), String> {
+    let branch = branch.unwrap_or_else(|| "default".to_string());
+    let repo_key = RepoKey {
+        repo_url: repo_url.to_string(),
+        branch: branch.clone(),
+    };
+
+    // Check if repository is already being monitored
+    {
+        let map = REPO_TASKS.lock().unwrap();
+        if map.contains_key(&repo_key) {
+            return Err(format!(
+                "Repository {} (branch: {}) is already being monitored",
+                repo_url, branch
+            ));
+        }
+    }
+
     let token = CancellationToken::new();
     {
         let mut map = REPO_TASKS.lock().unwrap();
-        map.insert(repo_url.to_string(), token.clone());
+        map.insert(repo_key.clone(), token.clone());
     }
-    info!("Starting repository link checker for {}", repo_url);
+    info!(
+        "Starting repository link checker for {} (branch: {})",
+        repo_url, branch
+    );
 
     let mut interval = tokio::time::interval(interval_duration);
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                info!("Checking links for repository: {}", repo_url);
+                info!("Checking links for repository: {} (branch: {})", repo_url, branch);
 
-                match git::extract_links_from_repo_url(repo_url, branch.clone()) {
+                match git::extract_links_from_repo_url(repo_url, Some(branch.clone())) {
                     Ok(links) => {
                         info!("Found {} links to check", links.len());
                         let mut handles = Vec::new();
@@ -57,31 +83,53 @@ pub async fn check_repository_links(
                     }
                     Err(e) => error!("Error processing repository: {}", e),
                 }
-                info!("Link check completed for {}. Waiting for next interval...", repo_url);
+                info!("Link check completed for {} (branch: {}). Waiting for next interval...", repo_url, branch);
             },
             _ = token.cancelled() => {
-                info!("Repository checker cancelled for: {}", repo_url);
+                info!(
+                    "Repository checker cancelled for: {} (branch: {})",
+                    repo_url, branch
+                );
                 break;
             }
         }
     }
     let mut map = REPO_TASKS.lock().unwrap();
-    map.remove(repo_url);
-    info!("Repository checker cleanup completed for: {}", repo_url);
+    map.remove(&repo_key);
+    info!(
+        "Repository checker cleanup completed for: {} (branch: {})",
+        repo_url, branch
+    );
+    Ok(())
 }
 
-// FIXME: 지금 리턴 타입이 없는데, Result를 반환해는게 나은가. 지금은 그냥 로그로 출력하고 있음.
 #[instrument(skip(), fields(repo_url = repo_url))]
-pub async fn cancel_repository_checker(repo_url: &str) {
+pub async fn cancel_repository_checker(
+    repo_url: &str,
+    branch: Option<String>,
+) -> Result<(), String> {
+    let branch = branch.unwrap_or_else(|| "default".to_string());
+    let repo_key = RepoKey {
+        repo_url: repo_url.to_string(),
+        branch: branch.clone(),
+    };
+
     let token = {
         let mut map = REPO_TASKS.lock().unwrap();
-        map.remove(repo_url)
+        map.remove(&repo_key)
     };
     if let Some(token) = token {
         token.cancel();
-        info!("Cancellation requested for repository: {}", repo_url);
+        info!(
+            "Cancellation requested for repository: {} (branch: {})",
+            repo_url, branch
+        );
+        Ok(())
     } else {
-        warn!("No active checker found for repository: {}", repo_url);
+        Err(format!(
+            "No active checker found for repository: {} (branch: {})",
+            repo_url, branch
+        ))
     }
 }
 
@@ -91,6 +139,33 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::time::timeout;
+
+    // #[tokio::test]
+    // FIXME: 미션 mock 사용하여 테스트를 가능케하라.
+    // async fn test_duplicate_repository() {
+    //     let repo_url = "https://github.com/reddevilmidzy/woowalog";
+    //     let interval = Duration::from_millis(100);
+
+    //     // First call should succeed
+    //     let result1 = check_repository_links(repo_url, None, interval).await;
+    //     assert!(result1.is_ok(), "First call should succeed");
+
+    //     // Second call should fail (same repo, default branch)
+    //     let result2 = check_repository_links(repo_url, None, interval).await;
+    //     assert!(result2.is_err(), "Second call should fail");
+    //     assert!(result2.unwrap_err().contains("already being monitored"));
+
+    //     // Call with different branch should succeed
+    //     let result3 = check_repository_links(repo_url, Some("main".to_string()), interval).await;
+    //     assert!(result3.is_ok(), "Call with different branch should succeed");
+
+    //     // Cancel the first checker
+    //     cancel_repository_checker(repo_url, None).await.unwrap();
+
+    //     // Third call should succeed again
+    //     let result4 = check_repository_links(repo_url, None, interval).await;
+    //     assert!(result4.is_ok(), "Third call should succeed after cancellation");
+    // }
 
     #[tokio::test]
     async fn test_scheduled_execution() {

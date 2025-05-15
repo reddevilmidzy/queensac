@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::{Level, info};
+use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
 async fn spawn_repository_checker(repo_url: &str, branch: Option<String>, interval: Duration) {
@@ -14,7 +14,9 @@ async fn spawn_repository_checker(repo_url: &str, branch: Option<String>, interv
     info!("Spawning repository checker for {}", repo_url);
     tokio::spawn(async move {
         info!("Starting repository link check for {}", repo_url);
-        check_repository_links(&repo_url, branch, interval).await;
+        if let Err(e) = check_repository_links(&repo_url, branch, interval).await {
+            error!("Repository checker failed: {}", e);
+        }
     });
 }
 
@@ -42,10 +44,13 @@ async fn check_handler(Json(payload): Json<CheckRequest>) -> &'static str {
 #[derive(Deserialize)]
 struct CancelRequest {
     repo_url: String,
+    branch: Option<String>,
 }
 
 async fn cancel_handler(Json(payload): Json<CancelRequest>) -> &'static str {
-    cancel_repository_checker(&payload.repo_url).await;
+    if let Err(e) = cancel_repository_checker(&payload.repo_url, payload.branch).await {
+        error!("Repository checker failed: {}", e);
+    }
     "Repository checker cancelled"
 }
 

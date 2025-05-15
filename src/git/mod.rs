@@ -222,7 +222,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_link_info_uniqueness() {
         let mut links = HashSet::new();
 
@@ -256,6 +255,17 @@ mod tests {
 
         // Should now have two entries because URLs are different
         assert_eq!(links.len(), 2, "Expected two unique URL entries");
+    }
+
+    #[test]
+    #[serial]
+    fn test_branch_found() {
+        let repo_url = "https://github.com/reddevilmidzy/riir_os";
+        let branch = "a-freestanding-rust-binary";
+
+        let result = extract_links_from_repo_url(repo_url, Some(branch.to_string()));
+
+        assert!(result.is_ok(), "Expected branch to be found");
     }
 
     #[test]
