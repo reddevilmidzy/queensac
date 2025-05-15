@@ -9,12 +9,12 @@ use std::time::Duration;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-async fn spawn_repository_checker(repo_url: &str, interval: Duration) {
+async fn spawn_repository_checker(repo_url: &str, branch: Option<String>, interval: Duration) {
     let repo_url = repo_url.to_string();
     info!("Spawning repository checker for {}", repo_url);
     tokio::spawn(async move {
         info!("Starting repository link check for {}", repo_url);
-        check_repository_links(&repo_url, interval).await;
+        check_repository_links(&repo_url, branch, interval).await;
     });
 }
 
@@ -25,16 +25,17 @@ async fn health_check() -> &'static str {
 #[derive(Deserialize)]
 struct CheckRequest {
     repo_url: String,
+    branch: Option<String>,
     interval_secs: u64,
 }
 
 async fn check_handler(Json(payload): Json<CheckRequest>) -> &'static str {
     info!(
-        "Received check request for repository: {}",
-        payload.repo_url
+        "Received check request for repository: {}, branch: {:?}",
+        payload.repo_url, payload.branch
     );
     let interval = Duration::from_secs(payload.interval_secs);
-    spawn_repository_checker(&payload.repo_url, interval).await;
+    spawn_repository_checker(&payload.repo_url, payload.branch, interval).await;
     "Repository checker started"
 }
 

@@ -14,7 +14,11 @@ static REPO_TASKS: Lazy<Mutex<HashMap<String, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[instrument(skip(interval_duration), fields(repo_url = repo_url))]
-pub async fn check_repository_links(repo_url: &str, interval_duration: Duration) {
+pub async fn check_repository_links(
+    repo_url: &str,
+    branch: Option<String>,
+    interval_duration: Duration,
+) {
     let token = CancellationToken::new();
     {
         let mut map = REPO_TASKS.lock().unwrap();
@@ -28,7 +32,7 @@ pub async fn check_repository_links(repo_url: &str, interval_duration: Duration)
             _ = interval.tick() => {
                 info!("Checking links for repository: {}", repo_url);
 
-                match git::extract_links_from_repo_url(repo_url) {
+                match git::extract_links_from_repo_url(repo_url, branch.clone()) {
                     Ok(links) => {
                         info!("Found {} links to check", links.len());
                         let mut handles = Vec::new();
