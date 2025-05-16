@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "rook" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "rook" ]
 
 permissions:
   contents: read
@@ -32,39 +32,44 @@ jobs:
       - name: Cache Cargo build
         uses: actions/cache@v3
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          path: rook/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
 
       - name: Check formatting
+        working-directory: rook
         run: |
-          cargo fmt -- --check > fmt-log.txt 2>&1
+          cargo fmt -- --check > ../fmt-log.txt 2>&1
           FMT_STATUS=$?
-          cat fmt-log.txt
+          cat ../fmt-log.txt
           exit $FMT_STATUS
 
       - name: Lint with Clippy
+        working-directory: rook
         run: |
-          cargo clippy -- -D warnings > clippy-log.txt 2>&1
+          cargo clippy -- -D warnings > ../clippy-log.txt 2>&1
           CLIPPY_STATUS=$?
-          cat clippy-log.txt
+          cat ../clippy-log.txt
           exit $CLIPPY_STATUS
 
       - name: Build
+        working-directory: rook
         run: |
-          cargo build --verbose > build-log.txt 2>&1
+          cargo build --verbose > ../build-log.txt 2>&1
           BUILD_STATUS=$?
-          cat build-log.txt
+          cat ../build-log.txt
           exit $BUILD_STATUS
 
       - name: Run tests
+        working-directory: rook
         run: |
-          cargo test --verbose > test-log.txt 2>&1
+          cargo test --verbose > ../test-log.txt 2>&1
           TEST_STATUS=$?
-          cat test-log.txt
+          cat ../test-log.txt
           exit $TEST_STATUS
 
       - name: Capture failure reason
         if: failure()
+        working-directory: .
         run: |
           echo "" > full-log.txt
           
