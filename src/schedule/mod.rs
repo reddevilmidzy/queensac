@@ -1,6 +1,3 @@
-// TODO: Review the usage of the 'link' and 'git' modules in this file.
-//       Verify if their usage aligns with the intended design and functionality.
-//       If necessary, refer to issue #123 for further context and discussion.
 use crate::git;
 use crate::link::{LinkCheckResult, check_link};
 use once_cell::sync::Lazy;
@@ -32,21 +29,19 @@ pub async fn check_repository_links(
     };
 
     // Check if repository is already being monitored
-    {
-        let map = REPO_TASKS.lock().unwrap();
+    let token = {
+        let mut map = REPO_TASKS.lock().unwrap();
         if map.contains_key(&repo_key) {
             return Err(format!(
                 "Repository {} (branch: {}) is already being monitored",
                 repo_url, branch
             ));
         }
-    }
-
-    let token = CancellationToken::new();
-    {
-        let mut map = REPO_TASKS.lock().unwrap();
+        let token = CancellationToken::new();
         map.insert(repo_key.clone(), token.clone());
-    }
+        token
+    };
+
     info!(
         "Starting repository link checker for {} (branch: {})",
         repo_url, branch
@@ -94,12 +89,7 @@ pub async fn check_repository_links(
             }
         }
     }
-    let mut map = REPO_TASKS.lock().unwrap();
-    map.remove(&repo_key);
-    info!(
-        "Repository checker cleanup completed for: {} (branch: {})",
-        repo_url, branch
-    );
+
     Ok(())
 }
 
