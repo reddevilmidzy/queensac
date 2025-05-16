@@ -89,12 +89,7 @@ pub async fn check_repository_links(
             }
         }
     }
-    let mut map = REPO_TASKS.lock().unwrap();
-    map.remove(&repo_key);
-    info!(
-        "Repository checker cleanup completed for: {} (branch: {})",
-        repo_url, branch
-    );
+
     Ok(())
 }
 
