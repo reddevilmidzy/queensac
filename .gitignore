@@ -1,5 +1,5 @@
-/target
+rook/target
 
 /.idea
-.shuttle*
-Secrets*.toml
+rook/.shuttle*
+rook/Secrets*.toml
