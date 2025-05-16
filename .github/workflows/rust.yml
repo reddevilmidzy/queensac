@@ -38,6 +38,7 @@ jobs:
       - name: Check formatting
         working-directory: rook
         run: |
+          # Redirecting log output to the parent directory to consolidate logs from multiple steps.
           cargo fmt -- --check > ../fmt-log.txt 2>&1
           FMT_STATUS=$?
           cat ../fmt-log.txt
