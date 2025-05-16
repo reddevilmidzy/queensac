@@ -70,6 +70,7 @@ jobs:
 
       - name: Capture failure reason
         if: failure()
+        # Switch to the repository root to access log files generated in earlier steps.
         working-directory: .
         run: |
           echo "" > full-log.txt
