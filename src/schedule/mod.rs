@@ -28,9 +28,8 @@ pub async fn check_repository_links(
         branch: branch.clone(),
     };
 
-    let token;
     // Check if repository is already being monitored
-    {
+    let token = {
         let mut map = REPO_TASKS.lock().unwrap();
         if map.contains_key(&repo_key) {
             return Err(format!(
@@ -38,9 +37,10 @@ pub async fn check_repository_links(
                 repo_url, branch
             ));
         }
-        token = CancellationToken::new();
+        let token = CancellationToken::new();
         map.insert(repo_key.clone(), token.clone());
-    }
+        token
+    };
 
     info!(
         "Starting repository link checker for {} (branch: {})",
