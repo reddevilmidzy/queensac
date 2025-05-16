@@ -35,7 +35,7 @@ async fn health_check() -> &'static str {
 struct CheckRequest {
     repo_url: String,
     branch: Option<String>,
-    interval_secs: u64,
+    interval_secs: Option<u64>,
 }
 
 async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str, StatusCode> {
@@ -43,7 +43,9 @@ async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str
         "Received check request for repository: {}, branch: {:?}",
         payload.repo_url, payload.branch
     );
-    let interval = Duration::from_secs(payload.interval_secs);
+    // FIXME 일단 interval_secs 는 유저가 수정할 수 없게 할 거긴 한데, 일단 테스트할 때 편하게 요청을 받아보자.
+    let interval = payload.interval_secs.unwrap_or(120);
+    let interval = Duration::from_secs(interval);
     if let Err(e) = spawn_repository_checker(&payload.repo_url, payload.branch, interval).await {
         error!("Failed to spawn repository checker: {}", e);
         return Err(StatusCode::BAD_REQUEST);
@@ -91,5 +93,5 @@ fn app() -> Router {
         .route("/", get(|| async { "Sacrifice the Queen!!" }))
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
-        .route("/cancel", delete(cancel_handler))
+        .route("/check", delete(cancel_handler))
 }
