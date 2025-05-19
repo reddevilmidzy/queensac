@@ -59,12 +59,22 @@ struct CancelRequest {
     branch: Option<String>,
 }
 
+/// Represents a GitHub repository URL.
+/// 
+/// This struct ensures that the URL is valid and follows the format
+/// `https://github.com/{owner}/{repo_name}`. It includes validation logic
+/// to enforce this format.
 #[derive(Debug, Clone)]
 struct RepositoryURL {
+    /// The URL of the repository.
     url: String,
 }
 
 impl<'de> Deserialize<'de> for RepositoryURL {
+    /// Custom deserialization logic for `RepositoryURL`.
+    ///
+    /// This implementation ensures that the URL is validated during
+    /// deserialization. If the URL is invalid, an error is returned.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
