@@ -39,7 +39,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_link() {
-        let link = "https://redddy.com";
+        let link = "https://redddy.ai";
         assert!(matches!(
             check_link(link).await,
             LinkCheckResult::Invalid(_)
