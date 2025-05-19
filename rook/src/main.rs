@@ -10,6 +10,9 @@ use std::time::Duration;
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
+const GITHUB_BASE_URL: &str = "https://github.com/";
+const GITHUB_URL_FORMAT: &str = "https://github.com/{owner}/{repo_name}";
+
 async fn spawn_repository_checker(
     repo_url: &str,
     branch: Option<String>,
@@ -60,7 +63,7 @@ struct CancelRequest {
 }
 
 /// Represents a GitHub repository URL.
-/// 
+///
 /// This struct ensures that the URL is valid and follows the format
 /// `https://github.com/{owner}/{repo_name}`. It includes validation logic
 /// to enforce this format.
@@ -88,16 +91,16 @@ impl<'de> Deserialize<'de> for RepositoryURL {
 
 impl RepositoryURL {
     fn validate(&self) -> Result<(), String> {
-        if !self.url.starts_with("https://github.com/") {
-            return Err("URL must start with https://github.com/".to_string());
+        if !self.url.starts_with(GITHUB_BASE_URL) {
+            return Err(format!("URL must start with {}", GITHUB_BASE_URL));
         }
         let parts: Vec<&str> = self
             .url
-            .trim_start_matches("https://github.com/")
+            .trim_start_matches(GITHUB_BASE_URL)
             .split('/')
             .collect();
         if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
-            return Err("URL must be in format https://github.com/{owner}/{repo_name}".to_string());
+            return Err(format!("URL must be in format {}", GITHUB_URL_FORMAT));
         }
         Ok(())
     }
