@@ -22,6 +22,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 shuttle-axum = "0.54.0"
 shuttle-runtime = { version = "0.54.0", default-features = false } # https://docs.shuttle.dev/docs/logs#default-tracing-subscriber
+validator = "0.14"
 
 [dev-dependencies]
 serial_test = "3.0.0"
+fake = "~2.3"
+quickcheck = "0.9.2"
+quickcheck_macros = "0.9.1"
