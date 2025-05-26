@@ -1,4 +1,4 @@
-use queensac::domain::RepositoryURL;
+use queensac::domain::NewSubscriber;
 use queensac::{cancel_repository_checker, check_repository_links};
 
 use axum::{
@@ -34,21 +34,27 @@ async fn health_check() -> &'static str {
 
 #[derive(Deserialize)]
 struct CheckRequest {
-    repo: RepositoryURL,
-    branch: Option<String>,
+    subscriber: NewSubscriber,
     interval_secs: Option<u64>,
 }
 
 async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str, StatusCode> {
     info!(
-        "Received check request for repository: {}, branch: {:?}",
-        payload.repo.url(),
-        payload.branch
+        "Received check request for repository: {}, branch: {:?}, email: {}",
+        payload.subscriber.repository_url().url(),
+        payload.subscriber.branch(),
+        payload.subscriber.email().as_str()
     );
     // FIXME 일단 interval_secs 는 유저가 수정할 수 없게 할 거긴 한데, 일단 테스트할 때 편하게 요청을 받아보자.
     let interval = payload.interval_secs.unwrap_or(120);
     let interval = Duration::from_secs(interval);
-    if let Err(e) = spawn_repository_checker(payload.repo.url(), payload.branch, interval).await {
+    if let Err(e) = spawn_repository_checker(
+        payload.subscriber.repository_url().url(),
+        payload.subscriber.branch().cloned(),
+        interval,
+    )
+    .await
+    {
         error!("Failed to spawn repository checker: {}", e);
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -57,12 +63,16 @@ async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str
 
 #[derive(Deserialize)]
 struct CancelRequest {
-    repo: RepositoryURL,
-    branch: Option<String>,
+    subscriber: NewSubscriber,
 }
 
 async fn cancel_handler(Json(payload): Json<CancelRequest>) -> Result<&'static str, StatusCode> {
-    if let Err(e) = cancel_repository_checker(payload.repo.url(), payload.branch).await {
+    if let Err(e) = cancel_repository_checker(
+        payload.subscriber.repository_url().url(),
+        payload.subscriber.branch().cloned(),
+    )
+    .await
+    {
         error!("Repository checker failed: {}", e);
         return Err(StatusCode::BAD_REQUEST);
     }
