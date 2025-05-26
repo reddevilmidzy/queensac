@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use validator::ValidateEmail;
 
 #[derive(Debug, Deserialize)]
 pub struct SubscriberEmail(String);
@@ -23,7 +24,7 @@ impl SubscriberEmail {
     /// ```
     pub fn new(email: impl Into<String>) -> Result<Self, String> {
         let email = email.into();
-        if validator::validate_email(&email) {
+        if email.validate_email() {
             Ok(Self(email))
         } else {
             Err(format!("{} is not a valid subscriber email.", email))
@@ -47,6 +48,9 @@ mod tests {
     use super::SubscriberEmail;
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
+    use quickcheck::Gen;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     #[test]
     fn empty_string_is_rejected() {
@@ -67,8 +71,9 @@ mod tests {
     struct ValidEmailFixture(pub String);
 
     impl quickcheck::Arbitrary for ValidEmailFixture {
-        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
-            let email = SafeEmail().fake_with_rng(g);
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut rng = StdRng::seed_from_u64(u64::arbitrary(g));
+            let email = SafeEmail().fake_with_rng(&mut rng);
             Self(email)
         }
     }
