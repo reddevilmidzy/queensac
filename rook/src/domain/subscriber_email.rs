@@ -2,12 +2,35 @@
 pub struct SubscriberEmail(String);
 
 impl SubscriberEmail {
-    pub fn parse(s: String) -> Result<Self, String> {
-        if validator::validate_email(&s) {
-            Ok(Self(s))
+    /// Creates a new `SubscriberEmail` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `email` - The email address to validate and store.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(SubscriberEmail)` if the email is valid, or `Err(String)` if the email is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use queensac::domain::SubscriberEmail;
+    ///
+    /// let email = SubscriberEmail::new("areyou@redddy.com").unwrap();
+    /// ```
+    pub fn new(email: impl Into<String>) -> Result<Self, String> {
+        let email = email.into();
+        if validator::validate_email(&email) {
+            Ok(Self(email))
         } else {
-            Err(format!("{} is not a valid subscriber email.", s))
+            Err(format!("{} is not a valid subscriber email.", email))
         }
+    }
+
+    /// Returns a reference to the email address.
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -25,20 +48,17 @@ mod tests {
 
     #[test]
     fn empty_string_is_rejected() {
-        let email = "".to_string();
-        assert!(SubscriberEmail::parse(email).is_err());
+        assert!(SubscriberEmail::new("").is_err());
     }
 
     #[test]
     fn email_missing_at_symbol_is_rejected() {
-        let email = "redddy.com".to_string();
-        assert!(SubscriberEmail::parse(email).is_err());
+        assert!(SubscriberEmail::new("redddy.com").is_err());
     }
 
     #[test]
     fn email_missing_subject_is_rejected() {
-        let email = "@redddy.com".to_string();
-        assert!(SubscriberEmail::parse(email).is_err());
+        assert!(SubscriberEmail::new("@redddy.com").is_err());
     }
 
     #[derive(Debug, Clone)]
@@ -53,6 +73,6 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
-        SubscriberEmail::parse(valid_email.0).is_ok()
+        SubscriberEmail::new(valid_email.0).is_ok()
     }
 }
