@@ -10,7 +10,7 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 struct RepoKey {
     repo_url: String,
-    branch: String,
+    branch: Option<String>,
 }
 
 static REPO_TASKS: Lazy<Mutex<HashMap<RepoKey, CancellationToken>>> =
@@ -22,7 +22,6 @@ pub async fn check_repository_links(
     branch: Option<String>,
     interval_duration: Duration,
 ) -> Result<(), String> {
-    let branch = branch.unwrap_or_else(|| "default".to_string());
     let repo_key = RepoKey {
         repo_url: repo_url.to_string(),
         branch: branch.clone(),
@@ -33,7 +32,7 @@ pub async fn check_repository_links(
         let mut map = REPO_TASKS.lock().unwrap();
         if map.contains_key(&repo_key) {
             return Err(format!(
-                "Repository {} (branch: {}) is already being monitored",
+                "Repository {} (branch: {:?}) is already being monitored",
                 repo_url, branch
             ));
         }
@@ -43,7 +42,7 @@ pub async fn check_repository_links(
     };
 
     info!(
-        "Starting repository link checker for {} (branch: {})",
+        "Starting repository link checker for {} (branch: {:?})",
         repo_url, branch
     );
 
@@ -51,9 +50,13 @@ pub async fn check_repository_links(
     loop {
         tokio::select! {
             _ = interval.tick() => {
-                info!("Checking links for repository: {} (branch: {})", repo_url, branch);
+                info!(
+                    "Checking links for repository: {} (branch: {:?})",
+                    repo_url,
+                    branch
+                );
 
-                match git::extract_links_from_repo_url(repo_url, Some(branch.clone())) {
+                match git::extract_links_from_repo_url(repo_url, branch.clone()) {
                     Ok(links) => {
                         info!("Found {} links to check", links.len());
                         let mut handles = Vec::new();
@@ -78,12 +81,17 @@ pub async fn check_repository_links(
                     }
                     Err(e) => error!("Error processing repository: {}", e),
                 }
-                info!("Link check completed for {} (branch: {}). Waiting for next interval...", repo_url, branch);
+                info!(
+                    "Link check completed for {} (branch: {:?}). Waiting for next interval...",
+                    repo_url,
+                    branch
+                );
             },
             _ = token.cancelled() => {
                 info!(
-                    "Repository checker cancelled for: {} (branch: {})",
-                    repo_url, branch
+                    "Repository checker cancelled for: {} (branch: {:?})",
+                    repo_url,
+                    branch
                 );
                 break;
             }
@@ -98,7 +106,6 @@ pub async fn cancel_repository_checker(
     repo_url: &str,
     branch: Option<String>,
 ) -> Result<(), String> {
-    let branch = branch.unwrap_or_else(|| "default".to_string());
     let repo_key = RepoKey {
         repo_url: repo_url.to_string(),
         branch: branch.clone(),
@@ -111,13 +118,13 @@ pub async fn cancel_repository_checker(
     if let Some(token) = token {
         token.cancel();
         info!(
-            "Cancellation requested for repository: {} (branch: {})",
+            "Cancellation requested for repository: {} (branch: {:?})",
             repo_url, branch
         );
         Ok(())
     } else {
         Err(format!(
-            "No active checker found for repository: {} (branch: {})",
+            "No active checker found for repository: {} (branch: {:?})",
             repo_url, branch
         ))
     }
@@ -129,33 +136,6 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::time::timeout;
-
-    // #[tokio::test]
-    // FIXME: 미션 mock 사용하여 테스트를 가능케하라.
-    // async fn test_duplicate_repository() {
-    //     let repo_url = "https://github.com/reddevilmidzy/woowalog";
-    //     let interval = Duration::from_millis(100);
-
-    //     // First call should succeed
-    //     let result1 = check_repository_links(repo_url, None, interval).await;
-    //     assert!(result1.is_ok(), "First call should succeed");
-
-    //     // Second call should fail (same repo, default branch)
-    //     let result2 = check_repository_links(repo_url, None, interval).await;
-    //     assert!(result2.is_err(), "Second call should fail");
-    //     assert!(result2.unwrap_err().contains("already being monitored"));
-
-    //     // Call with different branch should succeed
-    //     let result3 = check_repository_links(repo_url, Some("main".to_string()), interval).await;
-    //     assert!(result3.is_ok(), "Call with different branch should succeed");
-
-    //     // Cancel the first checker
-    //     cancel_repository_checker(repo_url, None).await.unwrap();
-
-    //     // Third call should succeed again
-    //     let result4 = check_repository_links(repo_url, None, interval).await;
-    //     assert!(result4.is_ok(), "Third call should succeed after cancellation");
-    // }
 
     #[tokio::test]
     async fn test_scheduled_execution() {
