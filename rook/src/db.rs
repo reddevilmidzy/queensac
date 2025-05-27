@@ -29,11 +29,11 @@ mod tests {
             .await
             .expect("Failed to create database pool");
 
-        let result = sqlx::query("SELECT 1")
-            .execute(&pool)
+        let row: (i32,) = sqlx::query_as("SELECT 1")
+            .fetch_one(&pool)
             .await
-            .expect("Failed to execute query");
+            .expect("Failed to fetch query result");
 
-        assert_eq!(result.rows_affected(), 1);
+        assert_eq!(row.0, 1);
     }
 }
