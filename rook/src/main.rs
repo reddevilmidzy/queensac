@@ -1,3 +1,4 @@
+use queensac::db::{create_pool, init_db};
 use queensac::domain::NewSubscriber;
 use queensac::{cancel_repository_checker, check_repository_links};
 
@@ -7,6 +8,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use serde::Deserialize;
+use sqlx::PgPool;
 use std::time::Duration;
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
@@ -95,15 +97,25 @@ async fn main() -> shuttle_axum::ShuttleAxum {
 
     info!("Starting Queensac service...");
 
-    let app = app();
+    dotenv::dotenv().ok();
+
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = create_pool(&database_url)
+        .await
+        .expect("Failed to create database pool");
+
+    init_db(&pool).await.expect("Failed to initialize database");
+
+    let app = app(pool);
 
     Ok(app.into())
 }
 
-fn app() -> Router {
+fn app(pool: PgPool) -> Router {
     Router::new()
         .route("/", get(|| async { "Sacrifice the Queen!!" }))
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
         .route("/check", delete(cancel_handler))
+        .with_state(pool)
 }
