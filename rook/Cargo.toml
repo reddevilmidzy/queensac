@@ -23,6 +23,8 @@ shuttle-axum = "0.55.0"
 shuttle-runtime = { version = "0.55.0", default-features = false } # see https://docs.shuttle.dev/docs/logs#default-tracing-subscriber
 validator = "0.20"
 secrecy = { version = "0.8", features = ["serde"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
+dotenv = "0.15"
 
 [dev-dependencies]
 serial_test = "3.0.0"
