@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE subscribers\n            SET verification_code = $1,\n                verification_code_created_at = $2,\n                verification_code_expires_at = $3,\n                is_verified = $4\n            WHERE email = $5\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "03a8230734da8b966adda4eadf99bd665be8d2cbba1b71c55677f83ec71969f5"
+}
