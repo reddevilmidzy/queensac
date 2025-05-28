@@ -25,10 +25,11 @@ validator = "0.20"
 secrecy = { version = "0.8", features = ["serde"] }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
 dotenv = "0.15"
+chrono = { version = "0.4.41", features = ["serde"] }
+rand = { version = "0.9", features = ["std_rng"] }
 
 [dev-dependencies]
 serial_test = "3.0.0"
 fake = "4.3"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.1.0"
-rand = { version = "0.9", features = ["std_rng"] }
