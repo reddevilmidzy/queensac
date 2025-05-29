@@ -43,7 +43,7 @@ impl EmailClient {
             text_body: text_content.to_owned(),
         };
 
-        let _ = self
+        let response = self
             .http_client
             .post(&url)
             .header(
@@ -53,8 +53,19 @@ impl EmailClient {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| format!("Failed to send email: {}", e))?
-            .error_for_status();
+            .map_err(|e| format!("Failed to send email: {}", e))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_message = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(format!(
+                "Failed to send email. Status: {}. Error: {}",
+                status, error_message
+            ));
+        }
 
         Ok(())
     }
@@ -68,4 +79,90 @@ struct SendEmailRequest {
     subject: String,
     html_body: String,
     text_body: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{header, method, path},
+    };
+
+    #[tokio::test]
+    async fn send_email_sends_the_expected_request() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender = SubscriberEmail::new("sender@example.com").unwrap();
+        let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new("test-token".to_string()),
+            Duration::from_secs(10),
+        );
+
+        Mock::given(header("X-Postmark-Server-Token", "test-token"))
+            .and(path("/email"))
+            .and(method("POST"))
+            .and(wiremock::matchers::body_json(serde_json::json!({
+                "From": "sender@example.com",
+                "To": "recipient@example.com",
+                "Subject": "Test subject",
+                "HtmlBody": "<p>Test HTML content</p>",
+                "TextBody": "Test text content"
+            })))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act
+        let outcome = email_client
+            .send_email(
+                recipient,
+                "Test subject".to_string(),
+                "<p>Test HTML content</p>".to_string(),
+                "Test text content".to_string(),
+            )
+            .await;
+
+        // Assert
+        assert!(outcome.is_ok());
+    }
+
+    #[tokio::test]
+    async fn send_email_fails_if_the_server_returns_500() {
+        // Arrange
+        let mock_server = MockServer::start().await;
+        let sender = SubscriberEmail::new("sender@example.com").unwrap();
+        let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new("test-token".to_string()),
+            Duration::from_secs(10),
+        );
+
+        Mock::given(header("X-Postmark-Server-Token", "test-token"))
+            .and(path("/email"))
+            .and(method("POST"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Act
+        let outcome = email_client
+            .send_email(
+                recipient,
+                "Test subject".to_string(),
+                "<p>Test HTML content</p>".to_string(),
+                "Test text content".to_string(),
+            )
+            .await;
+
+        // Assert
+        assert!(outcome.is_err());
+    }
 }
