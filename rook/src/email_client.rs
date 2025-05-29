@@ -55,17 +55,11 @@ impl EmailClient {
             .await
             .map_err(|e| format!("Failed to send email: {}", e))?;
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_message = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(format!(
-                "Failed to send email. Status: {}. Error: {}",
-                status, error_message
-            ));
-        }
+        let response = response.error_for_status().map_err(|e| {
+            let status = e.status().map_or("Unknown status".to_string(), |s| s.to_string());
+            let error_message = e.to_string();
+            format!("Failed to send email. Status: {}. Error: {}", status, error_message)
+        })?;
 
         Ok(())
     }
