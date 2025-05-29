@@ -1,14 +1,18 @@
+use queensac::configuration::get_configuration;
 use queensac::db::{create_pool, init_db};
 use queensac::domain::NewSubscriber;
+use queensac::email_client::EmailClient;
 use queensac::{cancel_repository_checker, check_repository_links};
 
 use axum::{
     Json, Router,
+    extract::State,
     http::StatusCode,
     routing::{delete, get, post},
 };
 use serde::Deserialize;
 use sqlx::PgPool;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
@@ -40,7 +44,10 @@ struct CheckRequest {
     interval_secs: Option<u64>,
 }
 
-async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str, StatusCode> {
+async fn check_handler(
+    State((_pool, email_client)): State<(PgPool, Arc<EmailClient>)>,
+    Json(payload): Json<CheckRequest>,
+) -> Result<&'static str, StatusCode> {
     info!(
         "Received check request for repository: {}, branch: {:?}, email: {}",
         payload.subscriber.repository_url().url(),
@@ -60,6 +67,18 @@ async fn check_handler(Json(payload): Json<CheckRequest>) -> Result<&'static str
         error!("Failed to spawn repository checker: {}", e);
         return Err(StatusCode::BAD_REQUEST);
     }
+    email_client
+        .send_email(
+            payload.subscriber.email().clone(),
+            "Repository checker started".to_string(),
+            "Repository checker started".to_string(),
+            "Repository checker started".to_string(),
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to send email: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
     Ok("Repository checker started")
 }
 
@@ -68,7 +87,10 @@ struct CancelRequest {
     subscriber: NewSubscriber,
 }
 
-async fn cancel_handler(Json(payload): Json<CancelRequest>) -> Result<&'static str, StatusCode> {
+async fn cancel_handler(
+    State((_pool, email_client)): State<(PgPool, Arc<EmailClient>)>,
+    Json(payload): Json<CancelRequest>,
+) -> Result<&'static str, StatusCode> {
     if let Err(e) = cancel_repository_checker(
         payload.subscriber.repository_url().url(),
         payload.subscriber.branch().cloned(),
@@ -78,6 +100,18 @@ async fn cancel_handler(Json(payload): Json<CancelRequest>) -> Result<&'static s
         error!("Repository checker failed: {}", e);
         return Err(StatusCode::BAD_REQUEST);
     }
+    email_client
+        .send_email(
+            payload.subscriber.email().clone(),
+            "Repository checker cancelled".to_string(),
+            "Repository checker cancelled".to_string(),
+            "Repository checker cancelled".to_string(),
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to send email: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
     Ok("Repository checker cancelled")
 }
 
@@ -99,6 +133,19 @@ async fn main() -> shuttle_axum::ShuttleAxum {
 
     dotenv::dotenv().ok();
 
+    // 이메일 클라이언트 설정 로드
+    let configuration = get_configuration().expect("Failed to read configuration.");
+    let sender = configuration
+        .email_client
+        .sender()
+        .expect("Failed to create sender email");
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url.clone(),
+        sender,
+        configuration.email_client.authorization_token.clone(),
+        configuration.email_client.timeout(),
+    );
+
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = create_pool(&database_url)
         .await
@@ -106,16 +153,16 @@ async fn main() -> shuttle_axum::ShuttleAxum {
 
     init_db(&pool).await.expect("Failed to initialize database");
 
-    let app = app(pool);
+    let app = app(pool, Arc::new(email_client));
 
     Ok(app.into())
 }
 
-fn app(pool: PgPool) -> Router {
+fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
     Router::new()
         .route("/", get(|| async { "Sacrifice the Queen!!" }))
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
         .route("/check", delete(cancel_handler))
-        .with_state(pool)
+        .with_state((pool, email_client))
 }
