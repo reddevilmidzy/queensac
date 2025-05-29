@@ -1,0 +1,3 @@
+email_client:
+  base_url: "https://api.postmarkapp.com"
+  timeout_seconds: 10 
