@@ -1,0 +1,3 @@
+email_client:
+  sender_email: "test@redddy.com"
+  authorization_token: "test-token" 
