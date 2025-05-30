@@ -1,12 +1,14 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
     Valid,
+    Redirect(String),
     Invalid(String),
 }
 
 pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
 
@@ -15,11 +17,18 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
         match client.get(url).send().await {
             Ok(res) => {
                 let status = res.status();
-                return if status.is_success() || status.is_redirection() {
-                    LinkCheckResult::Valid
+                if status.is_success() {
+                    return LinkCheckResult::Valid;
+                } else if status.is_redirection() {
+                    if let Some(redirect_url) = res.headers().get("location") {
+                        if let Ok(redirect_str) = redirect_url.to_str() {
+                            return LinkCheckResult::Redirect(redirect_str.to_string());
+                        }
+                    }
+                    return LinkCheckResult::Valid;
                 } else {
-                    LinkCheckResult::Invalid(format!("HTTP status code: {}", status))
-                };
+                    return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
+                }
             }
             Err(e) => {
                 if attempts == 1 {
@@ -46,5 +55,34 @@ mod tests {
         ));
         let link = "https://lazypazy.tistory.com";
         assert_eq!(check_link(link).await, LinkCheckResult::Valid);
+    }
+
+    #[tokio::test]
+    async fn change_organization_name() {
+        let link = "https://github.com/Bibimbap-Team/git-playground";
+        assert_eq!(
+            check_link(link).await,
+            LinkCheckResult::Redirect("https://github.com/Coduck-Team/git-playground".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn change_branch_name() {
+        let link = "https://github.com/sindresorhus/cli-spinners/tree/master";
+        assert_eq!(
+            check_link(link).await,
+            LinkCheckResult::Redirect(
+                "https://github.com/sindresorhus/cli-spinners/tree/main".to_string()
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn change_repository_name() {
+        let link = "https://github.com/reddevilmidzy/coduo-java-rps";
+        assert_eq!(
+            check_link(link).await,
+            LinkCheckResult::Redirect("https://github.com/reddevilmidzy/coduo-rps".to_string())
+        );
     }
 }
