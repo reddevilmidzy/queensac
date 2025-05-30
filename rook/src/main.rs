@@ -1,5 +1,5 @@
 use queensac::configuration::get_configuration;
-use queensac::db::{create_pool, init_db};
+use queensac::db::init_db;
 use queensac::domain::NewSubscriber;
 use queensac::email_client::EmailClient;
 use queensac::{cancel_repository_checker, check_repository_links};
@@ -116,7 +116,7 @@ async fn cancel_handler(
 }
 
 #[shuttle_runtime::main]
-async fn main() -> shuttle_axum::ShuttleAxum {
+async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::ShuttleAxum {
     FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_target(false)
@@ -146,10 +146,12 @@ async fn main() -> shuttle_axum::ShuttleAxum {
         configuration.email_client.timeout(),
     );
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = create_pool(&database_url)
-        .await
-        .expect("Failed to create database pool");
+    // FIXME: 현재는 shuttle 에서 제공하는 풀을 사용하고 있음.
+    // 나중에는 shuttle 에서 배포할게 아니기 때문에 변경해야 함
+    // let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    // let pool = create_pool(&database_url)
+    //     .await
+    //     .expect("Failed to create database pool");
 
     init_db(&pool).await.expect("Failed to initialize database");
 
