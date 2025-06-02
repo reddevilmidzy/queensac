@@ -7,6 +7,8 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
 
+pub mod sse;
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 struct RepoKey {
     repo_url: String,
@@ -16,6 +18,7 @@ struct RepoKey {
 static REPO_TASKS: Lazy<Mutex<HashMap<RepoKey, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+// TODO 단순히 로그를 출력하여 링크 결과를 확인할 게 아니라 적절한 응답을 주도록 변경해야 함
 #[instrument(skip(interval_duration), fields(repo_url = repo_url))]
 pub async fn check_repository_links(
     repo_url: &str,

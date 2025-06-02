@@ -1,12 +1,13 @@
 use queensac::configuration::get_configuration;
 use queensac::db::init_db;
-use queensac::domain::NewSubscriber;
+use queensac::domain::{NewSubscriber, RepositoryURL};
 use queensac::email_client::EmailClient;
+use queensac::schedule::sse::stream_link_checks;
 use queensac::{cancel_repository_checker, check_repository_links};
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     routing::{delete, get, post},
 };
@@ -115,6 +116,16 @@ async fn cancel_handler(
     Ok("Repository checker cancelled")
 }
 
+#[derive(Deserialize)]
+struct StreamRequest {
+    repo_url: RepositoryURL,
+    branch: Option<String>,
+}
+
+async fn stream_handler(Query(params): Query<StreamRequest>) -> impl axum::response::IntoResponse {
+    stream_link_checks(params.repo_url.url().to_string(), params.branch).await
+}
+
 #[shuttle_runtime::main]
 async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::ShuttleAxum {
     FmtSubscriber::builder()
@@ -166,5 +177,6 @@ fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
         .route("/health", get(health_check))
         .route("/check", post(check_handler))
         .route("/check", delete(cancel_handler))
+        .route("/stream", get(stream_handler))
         .with_state((pool, email_client))
 }
