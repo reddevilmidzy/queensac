@@ -7,8 +7,6 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
 
-pub mod sse;
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 struct RepoKey {
     repo_url: String,

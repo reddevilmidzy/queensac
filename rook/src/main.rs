@@ -1,9 +1,9 @@
+// todo 어떤게 깔끔한 import 구조인지, 조사하기. 베스트 쁘락띠쓰 찾기.
 use queensac::configuration::get_configuration;
 use queensac::db::init_db;
 use queensac::domain::{NewSubscriber, RepositoryURL};
 use queensac::email_client::EmailClient;
-use queensac::schedule::sse::stream_link_checks;
-use queensac::{cancel_repository_checker, check_repository_links};
+use queensac::{cancel_repository_checker, check_repository_links, stream_link_checks};
 
 use axum::{
     Json, Router,

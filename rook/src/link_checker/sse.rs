@@ -1,5 +1,6 @@
 use crate::git;
-use crate::link::{LinkCheckResult, check_link};
+use crate::link_checker::link::{LinkCheckResult, check_link};
+
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures::stream::{self, Stream};
 use std::convert::Infallible;
