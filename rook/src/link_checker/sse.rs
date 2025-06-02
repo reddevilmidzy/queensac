@@ -2,10 +2,10 @@ use crate::git;
 use crate::link_checker::link::{LinkCheckResult, check_link};
 
 use axum::response::sse::{Event, KeepAlive, Sse};
+use futures::StreamExt;
 use futures::stream::{self, Stream};
 use std::convert::Infallible;
 use std::pin::Pin;
-use tokio_stream::StreamExt;
 use tracing::{error, info, instrument};
 
 #[derive(Debug, serde::Serialize)]
@@ -32,25 +32,35 @@ pub async fn stream_link_checks(
             info!("Found {} links to check", links.len());
 
             let links_stream = stream::iter(links);
-            let events_stream = links_stream.then(move |link| async move {
-                let result = check_link(&link.url).await;
-                let event = LinkCheckEvent {
-                    url: link.url,
-                    file_path: link.file_path,
-                    line_number: link.line_number as u32,
-                    status: match &result {
-                        LinkCheckResult::Valid => "valid".to_string(),
-                        LinkCheckResult::Invalid(_) => "invalid".to_string(),
-                        LinkCheckResult::Redirect(_) => "redirect".to_string(),
-                    },
-                    message: match result {
-                        LinkCheckResult::Valid => None,
-                        LinkCheckResult::Invalid(msg) => Some(msg),
-                        LinkCheckResult::Redirect(url) => Some(format!("Redirected to: {}", url)),
-                    },
-                };
-                Ok(Event::default().json_data(event).unwrap())
-            });
+            let events_stream = links_stream
+                .map(move |link| async move {
+                    let result = check_link(&link.url).await;
+                    let event = LinkCheckEvent {
+                        url: link.url,
+                        file_path: link.file_path,
+                        line_number: link.line_number as u32,
+                        status: match &result {
+                            LinkCheckResult::Valid => "valid".to_string(),
+                            LinkCheckResult::Invalid(_) => "invalid".to_string(),
+                            LinkCheckResult::Redirect(_) => "redirect".to_string(),
+                        },
+                        message: match result {
+                            LinkCheckResult::Valid => None,
+                            LinkCheckResult::Invalid(msg) => Some(msg),
+                            LinkCheckResult::Redirect(url) => {
+                                Some(format!("Redirected to: {}", url))
+                            }
+                        },
+                    };
+                    match Event::default().json_data(event) {
+                        Ok(event) => Ok(event),
+                        Err(e) => {
+                            error!("Failed to serialize event: {}", e);
+                            Ok(Event::default().data(format!("Error serializing event: {}", e)))
+                        }
+                    }
+                })
+                .buffer_unordered(10);
             Box::pin(events_stream) as Pin<Box<dyn Stream<Item = Result<Event, Infallible>> + Send>>
         }
         Err(e) => {
@@ -149,15 +159,19 @@ mod tests {
             "text/event-stream"
         );
 
-        // Act: SSE 스트림 읽기 및 파싱 (타임아웃 적용)
-        let mut stream = response.bytes_stream();
+        let mut stream = response.bytes_stream().map(|chunk| match chunk {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                error!("Failed to read chunk: {}", e);
+                Vec::new().into()
+            }
+        });
         let mut events = Vec::new();
 
         // 스트림 읽기 작업에 5초 타임아웃 설정
         let timeout_duration = Duration::from_secs(5);
         let stream_future = async {
             while let Some(chunk) = stream.next().await {
-                let chunk = chunk.unwrap();
                 let text = String::from_utf8_lossy(&chunk);
 
                 for line in text.lines() {
