@@ -10,7 +10,7 @@ readme = "../README.md"
 [dependencies]
 axum = "0.8"
 regex = "1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 git2 = "0.20"
