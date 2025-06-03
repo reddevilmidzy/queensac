@@ -1,13 +1,13 @@
 use crate::domain::{NewSubscriber, RepositoryURL};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CheckRequest {
     pub subscriber: NewSubscriber,
     pub interval_secs: Option<u64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CancelRequest {
     pub subscriber: NewSubscriber,
 }

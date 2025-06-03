@@ -1,8 +1,8 @@
 use crate::domain::repository_url::RepositoryURL;
 use crate::domain::subscriber_email::SubscriberEmail;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NewSubscriber {
     email: SubscriberEmail,
     repository_url: RepositoryURL,
