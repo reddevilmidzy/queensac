@@ -1,7 +1,12 @@
 use crate::domain::SubscriberEmail;
+use config::{Config, File, FileFormat};
 use secrecy::Secret;
 use serde::Deserialize;
 use std::time::Duration;
+
+const BASE_CONFIG: &str = include_str!("../configuration/base.yaml");
+const LOCAL_CONFIG: &str = include_str!("../configuration/local.yaml");
+const PRODUCTION_CONFIG: &str = include_str!("../configuration/production.yaml");
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -36,30 +41,27 @@ impl EmailClientSettings {
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let configuration_directory = base_path.join("configuration");
-
     // Detect environment
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT");
 
-    let settings = config::Config::builder()
-        .add_source(config::File::from(
-            configuration_directory.join("base.yaml"),
-        ))
-        // Read environment-specific configuration
-        .add_source(config::File::from(
-            configuration_directory.join(format!("{}.yaml", environment.as_str())),
-        ))
-        // Read environment variables
+    let enviroment_config = match environment {
+        Environment::Local => LOCAL_CONFIG,
+        Environment::Production => PRODUCTION_CONFIG,
+    };
+
+    let settings = Config::builder()
+        .add_source(File::from_str(BASE_CONFIG, FileFormat::Yaml))
+        .add_source(File::from_str(enviroment_config, FileFormat::Yaml))
         .add_source(config::Environment::with_prefix("APP").separator("__"))
         .build()?;
 
     settings.try_deserialize::<Settings>()
 }
 
+#[derive(Debug)]
 pub enum Environment {
     Local,
     Production,
