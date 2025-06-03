@@ -1,3 +1,3 @@
 email_client:
   sender_email: "${POSTMARK_SENDER_EMAIL}"
-  authorization_token: "${POSTMARK_AUTH_TOKEN}" 
+  authorization_token: "${POSTMARK_AUTH_TOKEN}"
