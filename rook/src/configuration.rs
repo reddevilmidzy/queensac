@@ -47,14 +47,14 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT");
 
-    let enviroment_config = match environment {
+    let environment_config = match environment {
         Environment::Local => LOCAL_CONFIG,
         Environment::Production => PRODUCTION_CONFIG,
     };
 
     let settings = Config::builder()
         .add_source(File::from_str(BASE_CONFIG, FileFormat::Yaml))
-        .add_source(File::from_str(enviroment_config, FileFormat::Yaml))
+        .add_source(File::from_str(environment_config, FileFormat::Yaml))
         .add_source(config::Environment::with_prefix("APP").separator("__"))
         .build()?;
 
