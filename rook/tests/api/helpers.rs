@@ -14,7 +14,7 @@ impl TestRouter {
         Self { addr }
     }
 
-    pub fn with_route(self, path: &str, method: MethodRouter) -> Self {
+    pub async fn with_route(self, path: &str, method: MethodRouter) -> Self {
         let app = Router::new().route(path, method);
         let app_clone = app.clone();
 

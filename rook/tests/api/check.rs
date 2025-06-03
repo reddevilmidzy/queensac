@@ -43,17 +43,20 @@ async fn test_check_post() {
     let mock_service = Arc::new(mock_service);
     let mock_service_clone = mock_service.clone();
 
-    let test_router = TestRouter::new().await.with_route(
-        "/check",
-        post(move |Json(params): Json<CheckRequest>| {
-            let mock_service = mock_service_clone.clone();
-            async move {
-                let task_id =
-                    mock_service.check_repository(params.subscriber, params.interval_secs);
-                Json(CheckResponse { task_id })
-            }
-        }),
-    );
+    let test_router = TestRouter::new()
+        .await
+        .with_route(
+            "/check",
+            post(move |Json(params): Json<CheckRequest>| {
+                let mock_service = mock_service_clone.clone();
+                async move {
+                    let task_id =
+                        mock_service.check_repository(params.subscriber, params.interval_secs);
+                    Json(CheckResponse { task_id })
+                }
+            }),
+        )
+        .await;
 
     // Act
     let client = test_router.get_client();
@@ -90,16 +93,19 @@ async fn test_check_delete() {
     let mock_service = Arc::new(mock_service);
     let mock_service_clone = mock_service.clone();
 
-    let test_router = TestRouter::new().await.with_route(
-        "/check",
-        delete(move |Json(params): Json<CancelRequest>| {
-            let mock_service = mock_service_clone.clone();
-            async move {
-                mock_service.cancel_check(params.subscriber);
-                axum::http::StatusCode::NO_CONTENT
-            }
-        }),
-    );
+    let test_router = TestRouter::new()
+        .await
+        .with_route(
+            "/check",
+            delete(move |Json(params): Json<CancelRequest>| {
+                let mock_service = mock_service_clone.clone();
+                async move {
+                    mock_service.cancel_check(params.subscriber);
+                    axum::http::StatusCode::NO_CONTENT
+                }
+            }),
+        )
+        .await;
 
     // Act
     let client = test_router.get_client();
@@ -125,17 +131,20 @@ async fn test_check_post_invalid_repo_url() {
     let mock_service = Arc::new(mock_service);
     let mock_service_clone = mock_service.clone();
 
-    let test_router = TestRouter::new().await.with_route(
-        "/check",
-        post(move |Json(params): Json<CheckRequest>| {
-            let mock_service = mock_service_clone.clone();
-            async move {
-                let task_id =
-                    mock_service.check_repository(params.subscriber, params.interval_secs);
-                Json(CheckResponse { task_id })
-            }
-        }),
-    );
+    let test_router = TestRouter::new()
+        .await
+        .with_route(
+            "/check",
+            post(move |Json(params): Json<CheckRequest>| {
+                let mock_service = mock_service_clone.clone();
+                async move {
+                    let task_id =
+                        mock_service.check_repository(params.subscriber, params.interval_secs);
+                    Json(CheckResponse { task_id })
+                }
+            }),
+        )
+        .await;
 
     // Act
     let client = test_router.get_client();
