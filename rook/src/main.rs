@@ -1,7 +1,7 @@
 // todo 어떤게 깔끔한 import 구조인지, 조사하기. 베스트 쁘락띠쓰 찾기.
+use queensac::api::dto::*;
 use queensac::configuration::get_configuration;
 use queensac::db::init_db;
-use queensac::domain::{NewSubscriber, RepositoryURL};
 use queensac::email_client::EmailClient;
 use queensac::{cancel_repository_checker, check_repository_links, stream_link_checks};
 
@@ -11,7 +11,6 @@ use axum::{
     http::StatusCode,
     routing::{delete, get, post},
 };
-use serde::Deserialize;
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,12 +36,6 @@ async fn spawn_repository_checker(
 
 async fn health_check() -> &'static str {
     "OK"
-}
-
-#[derive(Deserialize)]
-struct CheckRequest {
-    subscriber: NewSubscriber,
-    interval_secs: Option<u64>,
 }
 
 async fn check_handler(
@@ -83,11 +76,6 @@ async fn check_handler(
     Ok("Repository checker started")
 }
 
-#[derive(Deserialize)]
-struct CancelRequest {
-    subscriber: NewSubscriber,
-}
-
 async fn cancel_handler(
     State((_pool, email_client)): State<(PgPool, Arc<EmailClient>)>,
     Json(payload): Json<CancelRequest>,
@@ -114,12 +102,6 @@ async fn cancel_handler(
             StatusCode::BAD_REQUEST
         })?;
     Ok("Repository checker cancelled")
-}
-
-#[derive(Deserialize)]
-struct StreamRequest {
-    repo_url: RepositoryURL,
-    branch: Option<String>,
 }
 
 async fn stream_handler(Query(params): Query<StreamRequest>) -> impl axum::response::IntoResponse {

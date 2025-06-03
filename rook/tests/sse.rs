@@ -2,23 +2,12 @@ use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::{Router, extract::Query, routing::get};
 use futures::StreamExt;
 use futures::stream::{self, Stream};
-use queensac::LinkInfo;
-use queensac::RepositoryURL;
 use queensac::sse::LinkCheckEvent;
-use serde::Deserialize;
+use queensac::{LinkInfo, StreamRequest};
 use std::convert::Infallible;
 use std::pin::Pin;
 use tokio::net::TcpListener;
 use tokio::time::{Duration, timeout};
-
-// fixme 이거 사실 main.rs에 있는 거랑 똑같다.
-// 이 테스트의 위치도 이상하고 StreamRequest 스트럭의 위치도 이상함.
-#[derive(Deserialize)]
-#[allow(dead_code)]
-struct StreamRequest {
-    repo_url: RepositoryURL,
-    branch: Option<String>,
-}
 
 #[tokio::test]
 async fn test_sse_stream() {
