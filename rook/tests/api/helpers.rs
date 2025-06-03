@@ -2,6 +2,7 @@ use axum::{Router, routing::MethodRouter};
 use queensac::{NewSubscriber, RepositoryURL, SubscriberEmail};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tokio::time::{Duration, sleep};
 
 pub struct TestRouter {
     addr: SocketAddr,
@@ -15,7 +16,9 @@ impl TestRouter {
     }
 
     pub async fn with_route(self, path: &str, method: MethodRouter) -> Self {
-        let app = Router::new().route(path, method);
+        let app = Router::new()
+            .route(path, method)
+            .route("/health", axum::routing::get(|| async { "ok" }));
         let app_clone = app.clone();
 
         tokio::spawn(async move {
@@ -23,7 +26,26 @@ impl TestRouter {
             axum::serve(listener, app_clone).await.unwrap();
         });
 
+        // Wait for server to be ready
+        self.wait_for_server().await;
         self
+    }
+
+    async fn wait_for_server(&self) {
+        let client = reqwest::Client::new();
+        let url = self.get_url("/health");
+
+        // Try to connect to the server for up to 5 seconds
+        for _ in 0..50 {
+            match client.get(&url).send().await {
+                Ok(_) => return,
+                Err(_) => {
+                    sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
+            }
+        }
+        panic!("Server failed to start within 5 seconds");
     }
 
     pub fn get_client(&self) -> reqwest::Client {
