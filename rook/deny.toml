@@ -1,0 +1,37 @@
+[graph]
+all-features = true
+
+[output]
+feature-depth = 1
+
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+[licenses]
+unused-allowed-license = "warn"
+allow = [
+    "Apache-2.0",
+    "MIT", 
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "Unlicense",
+]
+
+confidence-threshold = 0.8
+
+[bans]
+# deny로 하고픈데 그만큼 노오력이 필요해보임
+multiple-versions = "allow"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

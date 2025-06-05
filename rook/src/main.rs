@@ -124,7 +124,7 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
 
     info!("Starting Queensac service...");
 
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     // 이메일 클라이언트 설정 로드
     let configuration = get_configuration().expect("Failed to read configuration.");

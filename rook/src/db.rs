@@ -63,7 +63,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_database_connection() {
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
         let pool = create_pool(&database_url)
