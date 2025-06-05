@@ -16,8 +16,29 @@ env:
   SQLX_OFFLINE: true
 
 jobs:
-  build:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Cache cargo binaries
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bin-
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          log-level: warn
+          manifest-path: ./rook/Cargo.toml
+          command: check
+          arguments: --all-features
+
+  build:
+    needs: security
     runs-on: ubuntu-latest
 
     services:
