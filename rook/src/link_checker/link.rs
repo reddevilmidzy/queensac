@@ -3,6 +3,7 @@ pub enum LinkCheckResult {
     Valid,
     Redirect(String),
     Invalid(String),
+    GitHubFileMoved(String),
 }
 
 pub async fn check_link(url: &str) -> LinkCheckResult {
@@ -26,6 +27,9 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                         }
                     }
                     return LinkCheckResult::Valid;
+                } else if status.as_u16() == 404 && url.contains("github.com") {
+                    // TODO: 파일 이동 추적
+                    return LinkCheckResult::GitHubFileMoved("".to_string());
                 } else {
                     return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
                 }

@@ -1,10 +1,7 @@
 use git2::Repository;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{collections::HashSet, env, fs, path::PathBuf};
 
 const REGEX_URL: &str = r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)";
 
