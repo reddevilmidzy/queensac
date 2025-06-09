@@ -1,24 +1,10 @@
-use git2::Repository;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, env, fs, path::PathBuf};
+use std::collections::HashSet;
+
+use crate::RepoManager;
 
 const REGEX_URL: &str = r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)";
-
-/// Generate a unique directory name using repo owner and name
-fn generate_dir_name(repo_url: &str, branch: Option<&str>) -> String {
-    let parts: Vec<&str> = repo_url
-        .trim_start_matches("https://github.com/")
-        .split('/')
-        .collect();
-    let (user_name, repo_name) = (parts[0], parts[1]);
-    format!(
-        "queensac_temp_repo/{}/{}/{}",
-        user_name,
-        repo_name,
-        branch.unwrap_or("default")
-    )
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Represents a hyperlink found in a repository, along with its location.
@@ -45,41 +31,15 @@ impl std::hash::Hash for LinkInfo {
     }
 }
 
-/// Checkout a specific branch in the repository
-fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), git2::Error> {
-    let remote_branch = format!("origin/{}", branch_name);
-    let reference = repo
-        .find_reference(&format!("refs/remotes/{}", remote_branch))
-        .map_err(|_| git2::Error::from_str(&format!("Branch not found: {}", branch_name)))?;
-
-    let commit = reference.peel_to_commit()?;
-    repo.checkout_tree(commit.as_object(), None)?;
-    repo.set_head(&format!("refs/heads/{}", branch_name))?;
-    Ok(())
-}
-
 pub fn extract_links_from_repo_url(
     repo_url: &str,
     branch: Option<String>,
 ) -> Result<HashSet<LinkInfo>, git2::Error> {
-    let temp_dir = env::temp_dir().join(generate_dir_name(repo_url, branch.as_deref()));
-    let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
-        git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
-    })?;
-
-    // Clone repository
-    let repo = Repository::clone(repo_url, &temp_dir)?;
-
-    // 브랜치가 지정된 경우에만 fetch와 체크아웃 수행
-    if let Some(branch_name) = branch {
-        let mut remote = repo.find_remote("origin")?;
-        remote.fetch(&["refs/heads/*:refs/remotes/origin/*"], None, None)?;
-        checkout_branch(&repo, &branch_name)?;
-    }
+    let repo_manager = RepoManager::clone_repo(repo_url, branch.as_deref())?;
 
     let mut all_links = HashSet::new();
 
-    if let Ok(head) = repo.head() {
+    if let Ok(head) = repo_manager.get_repo().head() {
         if let Ok(tree) = head.peel_to_tree() {
             tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
                 if let Some(name) = entry.name() {
@@ -89,7 +49,7 @@ pub fn extract_links_from_repo_url(
                         format!("{}/{}", dir, name)
                     };
 
-                    if let Ok(blob) = entry.to_object(&repo) {
+                    if let Ok(blob) = entry.to_object(repo_manager.get_repo()) {
                         if let Ok(blob) = blob.peel_to_blob() {
                             if let Ok(content) = String::from_utf8(blob.content().to_vec()) {
                                 let links = find_link_in_content(&content, file_path.clone());
@@ -125,26 +85,6 @@ fn find_link_in_content(content: &str, file_path: String) -> HashSet<LinkInfo> {
         }
     }
     result
-}
-
-struct TempDirGuard {
-    path: PathBuf,
-}
-
-impl TempDirGuard {
-    fn new(path: PathBuf) -> std::io::Result<Self> {
-        if path.exists() {
-            fs::remove_dir_all(&path)?;
-        }
-        fs::create_dir_all(&path)?;
-        Ok(Self { path })
-    }
-}
-
-impl Drop for TempDirGuard {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
-    }
 }
 
 #[cfg(test)]
@@ -267,60 +207,6 @@ mod tests {
         if let Err(e) = result {
             assert!(
                 e.message().contains(non_existent_branch),
-                "Error message should contain the branch name"
-            );
-        }
-    }
-
-    #[test]
-    #[serial]
-    fn test_checkout_branch_with_valid_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let temp_dir = env::temp_dir().join("test_checkout_branch");
-        let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).unwrap();
-
-        // Clone repository
-        let repo = Repository::clone(repo_url, &temp_dir).unwrap();
-
-        // Fetch all branches
-        let mut remote = repo.find_remote("origin").unwrap();
-        remote
-            .fetch(&["refs/heads/*:refs/remotes/origin/*"], None, None)
-            .unwrap();
-
-        // Test checkout with a known existing branch
-        let result = checkout_branch(&repo, "main");
-        assert!(
-            result.is_ok(),
-            "Should successfully checkout existing branch"
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_checkout_branch_with_invalid_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let temp_dir = env::temp_dir().join("test_checkout_invalid_branch");
-        let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).unwrap();
-
-        // Clone repository
-        let repo = Repository::clone(repo_url, &temp_dir).unwrap();
-
-        // Fetch all branches
-        let mut remote = repo.find_remote("origin").unwrap();
-        remote
-            .fetch(&["refs/heads/*:refs/remotes/origin/*"], None, None)
-            .unwrap();
-
-        // Test checkout with a non-existent branch
-        let result = checkout_branch(&repo, "non-existent-branch");
-        assert!(
-            result.is_err(),
-            "Should fail to checkout non-existent branch"
-        );
-        if let Err(e) = result {
-            assert!(
-                e.message().contains("non-existent-branch"),
                 "Error message should contain the branch name"
             );
         }
