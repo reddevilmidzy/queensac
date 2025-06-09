@@ -1,6 +1,14 @@
 use git2::Repository;
 
-// git log --follow -- <file_path>
+/// Finds the last commit ID that contains the target file
+///
+/// # Arguments
+/// * `target_file` - The path to the target file
+/// * `repo` - The repository to search in
+///
+/// # Returns
+/// * `Ok(git2::Commit)` - The last commit ID that contains the target file
+/// * `Err(git2::Error)` - If there was an error accessing the repository
 pub fn find_last_commit_id<'a>(
     target_file: &str,
     repo: &'a Repository,
@@ -32,7 +40,13 @@ pub fn find_last_commit_id<'a>(
     Err(git2::Error::from_str("File not found"))
 }
 
-/// Find the file new path in a commit
+/// Finds the new path of a file that has been moved in a commit
+///
+/// # Arguments
+/// * `repo` - The repository to search in
+/// * `commit` - The commit to search in
+/// * `target_file` - The path to the target file
+///
 pub fn find_file_new_path(
     repo: &Repository,
     commit: &git2::Commit,

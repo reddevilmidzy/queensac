@@ -2,11 +2,16 @@ use regex::Regex;
 
 use crate::{RepoManager, find_file_new_path, find_last_commit_id};
 
+/// Represents a parsed GitHub URL with its components
 #[derive(Debug)]
 pub struct GitHubUrl {
+    /// The owner/organization name from the GitHub URL
     owner: String,
+    /// The repository name from the GitHub URL
     repo: String,
+    /// The branch name if specified in the URL (e.g. master, main)
     branch: Option<String>,
+    /// The file path within the repository if specified in the URL
     file_path: Option<String>,
 }
 
@@ -47,26 +52,37 @@ impl GitHubUrl {
         })
     }
 
+    /// Returns the owner/organization name from the GitHub URL
     pub fn owner(&self) -> &str {
         &self.owner
     }
 
+    /// Returns the repository name from the GitHub URL
     pub fn repo(&self) -> &str {
         &self.repo
     }
 
+    /// Returns the branch name if specified in the URL
     pub fn branch(&self) -> Option<&str> {
         self.branch.as_deref()
     }
 
+    /// Returns the file path within the repository if specified in the URL
     pub fn file_path(&self) -> Option<&str> {
         self.file_path.as_deref()
     }
 
+    /// Returns the clone URL for the GitHub repository
     pub fn clone_url(&self) -> String {
         format!("https://github.com/{}/{}", self.owner, self.repo)
     }
 
+    /// Attempts to find the new path of a file that has been moved in the repository
+    ///
+    /// # Returns
+    /// * `Ok(Some(String))` - The new path of the file if found
+    /// * `Ok(None)` - If the file was not moved
+    /// * `Err(git2::Error)` - If there was an error accessing the repository
     pub fn find_github_file_new_path(&self) -> Result<Option<String>, git2::Error> {
         let file_path = self
             .file_path()

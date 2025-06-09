@@ -2,11 +2,14 @@ use std::{env, fs, path::PathBuf};
 
 use git2::Repository;
 
+/// A guard that automatically removes a temporary directory when dropped.
 pub struct TempDirGuard {
     path: PathBuf,
 }
 
 impl TempDirGuard {
+    /// Creates a new temporary directory guard.
+    /// If the directory already exists, it will be removed and recreated.
     pub fn new(path: PathBuf) -> std::io::Result<Self> {
         if path.exists() {
             fs::remove_dir_all(&path)?;
@@ -22,12 +25,21 @@ impl Drop for TempDirGuard {
     }
 }
 
+/// Manages a Git repository with automatic cleanup of temporary files.
 pub struct RepoManager {
     repo: Repository,
     _temp_dir_guard: TempDirGuard,
 }
 
 impl RepoManager {
+    /// Clones a Git repository and optionally checks out a specific branch.
+    ///
+    /// # Arguments
+    /// * `repo_url` - The URL of the repository to clone
+    /// * `branch` - Optional branch name to check out after cloning
+    ///
+    /// # Returns
+    /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
     pub fn clone_repo(repo_url: &str, branch: Option<&str>) -> Result<Self, git2::Error> {
         let temp_dir = env::temp_dir().join(format!(
             "github_repo_temp/{}/{}",
@@ -53,6 +65,14 @@ impl RepoManager {
         })
     }
 
+    /// Checks out a specific branch in the repository.
+    ///
+    /// # Arguments
+    /// * `repo` - The repository to check out the branch in
+    /// * `branch_name` - The name of the branch to check out
+    ///
+    /// # Returns
+    /// `Ok(())` if the branch was successfully checked out, or an error if the branch doesn't exist.
     pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), git2::Error> {
         let remote_branch = format!("origin/{}", branch_name);
         let reference = repo
@@ -65,6 +85,7 @@ impl RepoManager {
         Ok(())
     }
 
+    /// Returns a reference to the managed Git repository.
     pub fn get_repo(&self) -> &Repository {
         &self.repo
     }
