@@ -2,10 +2,8 @@ use crate::git;
 use crate::link_checker::link::{LinkCheckResult, check_link};
 
 use axum::response::sse::{Event, KeepAlive, Sse};
-use futures::StreamExt;
-use futures::stream::{self, Stream};
-use std::convert::Infallible;
-use std::pin::Pin;
+use futures::stream::{self, Stream, StreamExt};
+use std::{convert::Infallible, pin::Pin};
 use tracing::{error, info, instrument};
 
 #[derive(Debug, serde::Serialize)]
@@ -43,12 +41,16 @@ pub async fn stream_link_checks(
                             LinkCheckResult::Valid => "valid".to_string(),
                             LinkCheckResult::Invalid(_) => "invalid".to_string(),
                             LinkCheckResult::Redirect(_) => "redirect".to_string(),
+                            LinkCheckResult::GitHubFileMoved(_) => "file_moved".to_string(),
                         },
                         message: match result {
                             LinkCheckResult::Valid => None,
                             LinkCheckResult::Invalid(msg) => Some(msg),
                             LinkCheckResult::Redirect(url) => {
                                 Some(format!("Redirected to: {}", url))
+                            }
+                            LinkCheckResult::GitHubFileMoved(msg) => {
+                                Some(format!("Moved to: {}", msg))
                             }
                         },
                     };
