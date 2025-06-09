@@ -1,4 +1,4 @@
-use crate::find_github_file_new_path;
+use crate::GitHubUrl;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
@@ -30,8 +30,10 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     }
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
-                    if let Ok(Some(new_path)) = find_github_file_new_path(url) {
-                        return LinkCheckResult::GitHubFileMoved(new_path);
+                    if let Some(parsed) = GitHubUrl::parse(url) {
+                        if let Ok(Some(new_path)) = parsed.find_github_file_new_path() {
+                            return LinkCheckResult::GitHubFileMoved(new_path);
+                        }
                     }
                     return LinkCheckResult::Invalid(format!("File not found: {}", url));
                 } else {
