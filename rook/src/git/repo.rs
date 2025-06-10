@@ -32,11 +32,15 @@ pub struct RepoManager {
 }
 
 impl RepoManager {
-    /// Clones a Git repository and optionally checks out a specific branch.
+    /// Clones a Git repository, optionally cloning only a specific branch.
+    ///
+    /// When a branch name is provided, only that specific branch will be cloned,
+    /// which is more efficient than cloning the entire repository and then checking out.
+    /// If no branch is specified, the default branch will be cloned.
     ///
     /// # Arguments
     /// * `repo_url` - The URL of the repository to clone
-    /// * `branch` - Optional branch name to check out after cloning
+    /// * `branch` - Optional branch name to clone. If provided, only this branch will be cloned.
     ///
     /// # Returns
     /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
@@ -51,38 +55,18 @@ impl RepoManager {
             git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
         })?;
 
-        let repo = Repository::clone(repo_url, &temp_dir)?;
+        let mut builder = git2::build::RepoBuilder::new();
 
         if let Some(branch_name) = branch {
-            let mut remote = repo.find_remote("origin")?;
-            remote.fetch(&["refs/heads/*:refs/remotes/origin/*"], None, None)?;
-            Self::checkout_branch(&repo, branch_name)?;
+            builder.branch(branch_name);
         }
+
+        let repo = builder.clone(repo_url, &temp_dir)?;
 
         Ok(Self {
             repo,
             _temp_dir_guard,
         })
-    }
-
-    /// Checks out a specific branch in the repository.
-    ///
-    /// # Arguments
-    /// * `repo` - The repository to check out the branch in
-    /// * `branch_name` - The name of the branch to check out
-    ///
-    /// # Returns
-    /// `Ok(())` if the branch was successfully checked out, or an error if the branch doesn't exist.
-    pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), git2::Error> {
-        let remote_branch = format!("origin/{}", branch_name);
-        let reference = repo
-            .find_reference(&format!("refs/remotes/{}", remote_branch))
-            .map_err(|_| git2::Error::from_str(&format!("Branch not found: {}", branch_name)))?;
-
-        let commit = reference.peel_to_commit()?;
-        repo.checkout_tree(commit.as_object(), None)?;
-        repo.set_head(&format!("refs/heads/{}", branch_name))?;
-        Ok(())
     }
 
     /// Returns a reference to the managed Git repository.
@@ -101,6 +85,16 @@ mod tests {
     fn test_checkout_branch_with_valid_branch() {
         let repo_url = "https://github.com/reddevilmidzy/woowalog";
         let repo_manager = RepoManager::clone_repo(repo_url, Some("main")).unwrap();
+        assert!(repo_manager.get_repo().head().is_ok());
+        assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
+    }
+
+    #[test]
+    #[serial]
+    fn test_checkout_branch_with_default_branch() {
+        let repo_url = "https://github.com/reddevilmidzy/woowalog";
+        let repo_manager = RepoManager::clone_repo(repo_url, None).unwrap();
+        assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
     }
 
@@ -124,9 +118,11 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_clone_without_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let repo_manager = RepoManager::clone_repo(repo_url, None).unwrap();
+    fn test_clone_with_not_default_branch() {
+        let repo_url = "https://github.com/reddevilmidzy/woowa-writing";
+        let repo_manager = RepoManager::clone_repo(repo_url, Some("tech")).unwrap();
+
         assert!(repo_manager.get_repo().head().is_ok());
+        assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/tech");
     }
 }
