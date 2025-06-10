@@ -30,9 +30,12 @@ pub fn find_last_commit_id<'a>(
             let prev_tree = prev_commit.tree()?;
             let diff = repo.diff_tree_to_tree(Some(&prev_tree), Some(&tree), None)?;
             for delta in diff.deltas() {
-                let file_path = delta.new_file().path().unwrap();
-                if file_path.to_str().unwrap() == target_file {
-                    return Ok(commit);
+                if let Some(file_path) = delta.new_file().path() {
+                    if let Some(file_path_str) = file_path.to_str() {
+                        if file_path_str == target_file {
+                            return Ok(commit);
+                        }
+                    }
                 }
             }
         }
@@ -72,17 +75,13 @@ pub fn track_file_rename_in_commit(
 
     for delta in diff.deltas() {
         if delta.status() == Delta::Renamed
-            && delta.old_file().path().unwrap().to_str().unwrap() == target_file
+            && (delta.old_file().path().and_then(|p| p.to_str()) == Some(target_file))
         {
-            return Ok(Some(
-                delta
-                    .new_file()
-                    .path()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-            ));
+            return Ok(delta
+                .new_file()
+                .path()
+                .and_then(|p| p.to_str())
+                .map(|s| s.to_string()));
         }
     }
 
