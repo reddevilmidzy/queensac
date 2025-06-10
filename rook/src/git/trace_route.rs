@@ -1,4 +1,5 @@
-use git2::Repository;
+use git2::{Commit, Delta, DiffFindOptions, DiffOptions, ErrorCode, Repository};
+use std::path;
 
 /// Finds the last commit ID that contains the target file
 ///
@@ -12,7 +13,7 @@ use git2::Repository;
 pub fn find_last_commit_id<'a>(
     target_file: &str,
     repo: &'a Repository,
-) -> Result<git2::Commit<'a>, git2::Error> {
+) -> Result<Commit<'a>, git2::Error> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
@@ -49,16 +50,16 @@ pub fn find_last_commit_id<'a>(
 ///
 pub fn find_file_new_path(
     repo: &Repository,
-    commit: &git2::Commit,
+    commit: &Commit,
     target_file: &str,
 ) -> Result<Option<String>, git2::Error> {
     if commit.parent_count() != 1 {
         return Ok(None);
     }
 
-    let mut diff_opts = git2::DiffOptions::new();
+    let mut diff_opts = DiffOptions::new();
 
-    let mut find_opts = git2::DiffFindOptions::new();
+    let mut find_opts = DiffFindOptions::new();
     // TODO 적절한 값 찾기
     find_opts.rename_threshold(28);
 
@@ -70,7 +71,7 @@ pub fn find_file_new_path(
     diff.find_similar(Some(&mut find_opts))?;
 
     for delta in diff.deltas() {
-        if delta.status() == git2::Delta::Renamed
+        if delta.status() == Delta::Renamed
             && delta.old_file().path().unwrap().to_str().unwrap() == target_file
         {
             return Ok(Some(
@@ -86,6 +87,27 @@ pub fn find_file_new_path(
     }
 
     Ok(None)
+}
+
+/// Checks if a file exists in the repository at the given path
+///
+/// # Arguments
+/// * `repo` - The repository to check in
+/// * `file_path` - The path of the file to check
+///
+/// # Returns
+/// * `Ok(bool)` - `true` if the file exists, `false` otherwise
+/// * `Err(git2::Error)` - If there was an error accessing the repository
+pub fn file_exists_in_repo(repo: &Repository, file_path: &str) -> Result<bool, git2::Error> {
+    let head = repo.head()?;
+    let commit = head.peel_to_commit()?;
+    let tree = commit.tree()?;
+
+    match tree.get_path(path::Path::new(file_path)) {
+        Ok(_) => Ok(true),
+        Err(e) if e.code() == ErrorCode::NotFound => Ok(false),
+        Err(e) => Err(e),
+    }
 }
 
 #[cfg(test)]
@@ -107,6 +129,21 @@ mod tests {
             find_file_new_path(&repo_manager.get_repo(), &commit, "Cargo.toml")?,
             Some("rook/Cargo.toml".to_string())
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_exists_in_repo() -> Result<(), git2::Error> {
+        let repo_manager =
+            RepoManager::clone_repo("https://github.com/reddevilmidzy/reddevilmidzy", None)?;
+
+        assert!(file_exists_in_repo(repo_manager.get_repo(), "README.md")?);
+
+        assert!(!file_exists_in_repo(
+            repo_manager.get_repo(),
+            "non_existent_file.md"
+        )?);
 
         Ok(())
     }
