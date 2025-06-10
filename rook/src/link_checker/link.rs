@@ -31,7 +31,7 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
                     if let Some(parsed) = GitHubUrl::parse(url) {
-                        if let Ok(Some(new_path)) = parsed.find_github_file_new_path() {
+                        if let Ok(Some(new_path)) = parsed.find_current_location() {
                             return LinkCheckResult::GitHubFileMoved(new_path);
                         }
                     }
