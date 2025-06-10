@@ -149,6 +149,14 @@ mod tests {
     }
 
     #[test]
+    /// This test demonstrates the low-level Git operations for tracking file movements.
+    /// It is related to `url::tests::test_find_github_file_new_path` which tests the same
+    /// file movement pattern at a higher level using GitHub URLs.
+    ///
+    /// The test verifies the following file movement pattern:
+    /// 1. Initially located at: tmp.txt (root directory)
+    /// 2. First moved to: dockerfile_history/tmp.txt
+    /// 3. Finally moved to: img/tmp.txt
     fn test_track_file_rename_in_commit_with_multiple_moves() -> Result<(), git2::Error> {
         let repo_manager = RepoManager::clone_repo(
             "https://github.com/reddevilmidzy/zero2prod",
