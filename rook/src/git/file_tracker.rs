@@ -48,7 +48,7 @@ pub fn find_last_commit_id<'a>(
 /// * `commit` - The commit to search in
 /// * `target_file` - The path to the target file
 ///
-pub fn find_file_new_path(
+pub fn track_file_rename_in_commit(
     repo: &Repository,
     commit: &Commit,
     target_file: &str,
@@ -117,7 +117,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_file_new_path() -> Result<(), git2::Error> {
+    fn test_track_file_rename_in_commit() -> Result<(), git2::Error> {
         let repo_manager =
             RepoManager::clone_repo("https://github.com/reddevilmidzy/queensac", Some("main"))?;
         let commit = find_last_commit_id("Cargo.toml", &repo_manager.get_repo())?;
@@ -126,7 +126,7 @@ mod tests {
             "45203e841d42cf393e4d0a786b0a1a4ab267e91d"
         );
         assert_eq!(
-            find_file_new_path(&repo_manager.get_repo(), &commit, "Cargo.toml")?,
+            track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "Cargo.toml")?,
             Some("rook/Cargo.toml".to_string())
         );
 
@@ -144,6 +144,39 @@ mod tests {
             repo_manager.get_repo(),
             "non_existent_file.md"
         )?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_track_file_rename_in_commit_with_multiple_moves() -> Result<(), git2::Error> {
+        let repo_manager = RepoManager::clone_repo(
+            "https://github.com/reddevilmidzy/zero2prod",
+            Some("test_for_queensac"),
+        )?;
+
+        // 1. Find the commit where tmp.txt was moved to dockerfile_history/tmp.txt
+        let commit = find_last_commit_id("tmp.txt", &repo_manager.get_repo())?;
+        let new_path = track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "tmp.txt")?;
+        assert_eq!(new_path, Some("dockerfile_history/tmp.txt".to_string()));
+
+        // 2. Find the commit where dockerfile_history/tmp.txt was moved to img/tmp.txt
+        let commit = find_last_commit_id("dockerfile_history/tmp.txt", &repo_manager.get_repo())?;
+        let new_path = track_file_rename_in_commit(
+            &repo_manager.get_repo(),
+            &commit,
+            "dockerfile_history/tmp.txt",
+        )?;
+        assert_eq!(new_path, Some("img/tmp.txt".to_string()));
+
+        // 3. Verify that the file exists at the final location
+        assert!(file_exists_in_repo(
+            &repo_manager.get_repo(),
+            "img/tmp.txt"
+        )?);
+
+        // 4. Verify that the file doesn't exist at the original location
+        assert!(!file_exists_in_repo(&repo_manager.get_repo(), "tmp.txt")?);
 
         Ok(())
     }

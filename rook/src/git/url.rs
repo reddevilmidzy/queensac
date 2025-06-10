@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use crate::{RepoManager, find_file_new_path, find_last_commit_id};
+use crate::{RepoManager, find_last_commit_id, track_file_rename_in_commit};
 
 /// Represents a parsed GitHub URL with its components
 #[derive(Debug)]
@@ -77,13 +77,13 @@ impl GitHubUrl {
         format!("https://github.com/{}/{}", self.owner, self.repo)
     }
 
-    /// Attempts to find the new path of a file that has been moved in the repository
+    /// Attempts to find the current location of a file in the repository
     ///
     /// # Returns
-    /// * `Ok(Some(String))` - The new path of the file if found
-    /// * `Ok(None)` - If the file was not moved
+    /// * `Ok(Some(String))` - The current location of the file if found
+    /// * `Ok(None)` - If the file was not found
     /// * `Err(git2::Error)` - If there was an error accessing the repository
-    pub fn find_github_file_new_path(&self) -> Result<Option<String>, git2::Error> {
+    pub fn find_current_location(&self) -> Result<Option<String>, git2::Error> {
         let file_path = self
             .file_path()
             .ok_or_else(|| git2::Error::from_str("No file path in URL"))?;
@@ -91,7 +91,7 @@ impl GitHubUrl {
         let repo_manager = RepoManager::clone_repo(&self.clone_url(), self.branch())?;
 
         let commit = find_last_commit_id(file_path, repo_manager.get_repo())?;
-        let new_path = find_file_new_path(repo_manager.get_repo(), &commit, file_path)?;
+        let new_path = track_file_rename_in_commit(repo_manager.get_repo(), &commit, file_path)?;
         Ok(new_path)
     }
 }
