@@ -198,16 +198,15 @@ mod tests {
     /// 2. A file that was deleted and not moved anywhere else
     fn test_find_current_location_file_not_found() {
         // Test case 1: File that never existed
-        let url = GitHubUrl::parse(
-            "https://github.com/reddevilmidzy/test-queensac/blob/main/non_existent.txt",
-        )
-        .unwrap();
+        let url =
+            GitHubUrl::parse("https://github.com/reddevilmidzy/kingsac/blob/main/non_existent.txt")
+                .unwrap();
 
         assert_eq!(url.find_current_location().unwrap(), None);
 
         // Test case 2: File that was deleted
         let url = GitHubUrl::parse(
-            "https://github.com/reddevilmidzy/test-queensac/blob/main/will_be_deleted.rs",
+            "https://github.com/reddevilmidzy/kingsac/blob/main/will_be_deleted.rs",
         )
         .unwrap();
 

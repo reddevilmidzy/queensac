@@ -78,21 +78,21 @@ mod tests {
 
     #[tokio::test]
     async fn change_branch_name() {
-        let link = "https://github.com/sindresorhus/cli-spinners/tree/master";
+        let link = "https://github.com/reddevilmidzy/kingsac/tree/forever";
         assert_eq!(
             check_link(link).await,
             LinkCheckResult::Redirect(
-                "https://github.com/sindresorhus/cli-spinners/tree/main".to_string()
+                "https://github.com/reddevilmidzy/kingsac/tree/lie".to_string()
             )
         );
     }
 
     #[tokio::test]
     async fn change_repository_name() {
-        let link = "https://github.com/reddevilmidzy/coduo-java-rps";
+        let link = "https://github.com/reddevilmidzy/test-queensac";
         assert_eq!(
             check_link(link).await,
-            LinkCheckResult::Redirect("https://github.com/reddevilmidzy/coduo-rps".to_string())
+            LinkCheckResult::Redirect("https://github.com/reddevilmidzy/kingsac".to_string())
         );
     }
 }

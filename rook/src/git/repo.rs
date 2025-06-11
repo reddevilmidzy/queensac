@@ -80,11 +80,13 @@ mod tests {
     use super::*;
     use serial_test::serial;
 
+    static TEST_REPO_URL: &str = "https://github.com/reddevilmidzy/kingsac";
+
     #[test]
     #[serial]
     fn test_checkout_branch_with_valid_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let repo_manager = RepoManager::clone_repo(repo_url, Some("main")).unwrap();
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
     }
@@ -92,8 +94,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_checkout_branch_with_default_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let repo_manager = RepoManager::clone_repo(repo_url, None).unwrap();
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
     }
@@ -101,8 +103,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_checkout_branch_with_invalid_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
-        let result = RepoManager::clone_repo(repo_url, Some("non-existent-branch"));
+        let result = RepoManager::clone_repo(TEST_REPO_URL, Some("non-existent-branch"));
 
         assert!(
             result.is_err(),
@@ -119,10 +120,9 @@ mod tests {
     #[test]
     #[serial]
     fn test_clone_with_not_default_branch() {
-        let repo_url = "https://github.com/reddevilmidzy/woowa-writing";
-        let repo_manager = RepoManager::clone_repo(repo_url, Some("tech")).unwrap();
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("maout")).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
-        assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/tech");
+        assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/maout");
     }
 }
