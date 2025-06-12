@@ -68,5 +68,5 @@ pub fn create_test_subscriber() -> NewSubscriber {
 
 /// generate a test repo url
 pub fn create_test_repo_url() -> RepositoryURL {
-    RepositoryURL::new("https://github.com/reddevilmidzy/woowalog").unwrap()
+    RepositoryURL::new("https://github.com/reddevilmidzy/kingsac").unwrap()
 }

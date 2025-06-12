@@ -92,31 +92,9 @@ mod tests {
     use super::*;
     use serial_test::serial;
 
-    #[test]
-    #[serial]
-    fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
-        let repo_url = "https://github.com/reddevilmidzy/redddy-action";
-
-        let links = extract_links_from_repo_url(repo_url, None)?;
-
-        assert!(!links.is_empty(), "No links found in the repository");
-
-        let url_regex = Regex::new(REGEX_URL).unwrap();
-        for link in &links {
-            assert!(
-                url_regex.is_match(&link.url),
-                "Invalid URL found: {} at {}:{}",
-                link.url,
-                link.file_path,
-                link.line_number
-            );
-        }
-
-        Ok(())
-    }
+    static TEST_REPO_URL: &str = "https://github.com/reddevilmidzy/kingsac";
 
     #[test]
-    #[serial]
     fn test_find_link_in_content_duplicates() {
         let content = r#"
         https://example.com
@@ -187,10 +165,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_branch_found() {
-        let repo_url = "https://github.com/reddevilmidzy/riir_os";
-        let branch = "a-freestanding-rust-binary";
-
-        let result = extract_links_from_repo_url(repo_url, Some(branch.to_string()));
+        let branch = "main";
+        let result = extract_links_from_repo_url(TEST_REPO_URL, Some(branch.to_string()));
 
         assert!(result.is_ok(), "Expected branch to be found");
     }
@@ -198,10 +174,10 @@ mod tests {
     #[test]
     #[serial]
     fn test_branch_not_found() {
-        let repo_url = "https://github.com/reddevilmidzy/woowalog";
         let non_existent_branch = "non-existent-branch";
 
-        let result = extract_links_from_repo_url(repo_url, Some(non_existent_branch.to_string()));
+        let result =
+            extract_links_from_repo_url(TEST_REPO_URL, Some(non_existent_branch.to_string()));
 
         assert!(result.is_err(), "Expected error for non-existent branch");
         if let Err(e) = result {
@@ -210,5 +186,26 @@ mod tests {
                 "Error message should contain the branch name"
             );
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
+        let result = extract_links_from_repo_url(TEST_REPO_URL, None)?;
+
+        assert!(!result.is_empty(), "No links found in the repository");
+
+        let url_regex = Regex::new(REGEX_URL).unwrap();
+        for link in &result {
+            assert!(
+                url_regex.is_match(&link.url),
+                "Invalid URL found: {} at {}:{}",
+                link.url,
+                link.file_path,
+                link.line_number
+            );
+        }
+
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::GitHubUrl;
+use crate::{GitHubUrl, RepoManager};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
@@ -31,7 +31,10 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
                     if let Some(parsed) = GitHubUrl::parse(url) {
-                        if let Ok(Some(new_path)) = parsed.find_current_location() {
+                        if let Ok(Some(new_path)) = RepoManager::from_github_url(&parsed)
+                            .unwrap()
+                            .find_current_location(&parsed)
+                        {
                             return LinkCheckResult::GitHubFileMoved(new_path);
                         }
                     }
@@ -78,21 +81,21 @@ mod tests {
 
     #[tokio::test]
     async fn change_branch_name() {
-        let link = "https://github.com/sindresorhus/cli-spinners/tree/master";
+        let link = "https://github.com/reddevilmidzy/kingsac/tree/forever";
         assert_eq!(
             check_link(link).await,
             LinkCheckResult::Redirect(
-                "https://github.com/sindresorhus/cli-spinners/tree/main".to_string()
+                "https://github.com/reddevilmidzy/kingsac/tree/lie".to_string()
             )
         );
     }
 
     #[tokio::test]
     async fn change_repository_name() {
-        let link = "https://github.com/reddevilmidzy/coduo-java-rps";
+        let link = "https://github.com/reddevilmidzy/test-queensac";
         assert_eq!(
             check_link(link).await,
-            LinkCheckResult::Redirect("https://github.com/reddevilmidzy/coduo-rps".to_string())
+            LinkCheckResult::Redirect("https://github.com/reddevilmidzy/kingsac".to_string())
         );
     }
 }

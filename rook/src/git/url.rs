@@ -1,7 +1,4 @@
 use regex::Regex;
-use tracing::error;
-
-use crate::{RepoManager, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
 
 /// Represents a parsed GitHub URL with its components
 #[derive(Debug)]
@@ -77,51 +74,6 @@ impl GitHubUrl {
     pub fn clone_url(&self) -> String {
         format!("https://github.com/{}/{}", self.owner, self.repo)
     }
-
-    /// Attempts to find the current location of a file in the repository
-    ///
-    /// # Returns
-    /// * `Ok(Some(String))` - The current location of the file if found
-    /// * `Ok(None)` - If the file was not found
-    /// * `Err(git2::Error)` - If there was an error accessing the repository
-    pub fn find_current_location(&self) -> Result<Option<String>, git2::Error> {
-        let file_path = self
-            .file_path()
-            .ok_or_else(|| git2::Error::from_str("No file path in URL"))?;
-
-        let repo_manager = RepoManager::clone_repo(&self.clone_url(), self.branch())?;
-        let repo = repo_manager.get_repo();
-
-        let mut current_path = file_path.to_string();
-
-        loop {
-            if file_exists_in_repo(repo, &current_path)? {
-                return Ok(Some(current_path));
-            }
-
-            let commit = match find_last_commit_id(&current_path, repo) {
-                Ok(commit) => commit,
-                Err(e) => {
-                    error!("Error finding last commit for {}: {}", current_path, e);
-                    return Ok(None);
-                }
-            };
-
-            match track_file_rename_in_commit(repo, &commit, &current_path)? {
-                Some(new_path) => {
-                    current_path = new_path;
-                }
-                None => {
-                    error!(
-                        "Could not find new path for {} in commit {}",
-                        current_path,
-                        commit.id()
-                    );
-                    return Ok(None);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -171,46 +123,5 @@ mod tests {
     fn test_no_branch() {
         let url = "https://github.com/owner/repo/blob";
         assert!(GitHubUrl::parse(url).is_none());
-    }
-
-    #[test]
-    /// This test is related to `file_tracker::tests::test_track_file_rename_in_commit_with_multiple_moves`
-    /// which demonstrates the same file movement pattern:
-    /// 1. Initially located at: tmp.txt (root directory)
-    /// 2. First moved to: dockerfile_history/tmp.txt
-    /// 3. Finally moved to: img/tmp.txt
-    fn test_find_current_location() {
-        let url = GitHubUrl::parse(
-            "https://github.com/reddevilmidzy/zero2prod/blob/test_for_queensac/tmp.txt",
-        )
-        .unwrap();
-
-        assert_eq!(
-            url.find_current_location().unwrap(),
-            Some("img/tmp.txt".to_string())
-        );
-    }
-
-    #[test]
-    /// This test verifies the behavior when a file cannot be found in the repository.
-    /// It tests two scenarios:
-    /// 1. A file that never existed in the repository
-    /// 2. A file that was deleted and not moved anywhere else
-    fn test_find_current_location_file_not_found() {
-        // Test case 1: File that never existed
-        let url = GitHubUrl::parse(
-            "https://github.com/reddevilmidzy/test-queensac/blob/main/non_existent.txt",
-        )
-        .unwrap();
-
-        assert_eq!(url.find_current_location().unwrap(), None);
-
-        // Test case 2: File that was deleted
-        let url = GitHubUrl::parse(
-            "https://github.com/reddevilmidzy/test-queensac/blob/main/will_be_deleted.rs",
-        )
-        .unwrap();
-
-        assert_eq!(url.find_current_location().unwrap(), None);
     }
 }

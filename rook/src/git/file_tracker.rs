@@ -21,8 +21,8 @@ pub fn find_last_commit_id<'a>(
         let commit_id = commit_id?;
         let commit = repo.find_commit(commit_id)?;
 
-        // Ignore merge commits(2+ Paranent) because that's what 'git whatchenged' does.
-        // Ignore commit with 0 parent (initial commit) because there's nothing to diff againist.
+        // Ignore merge commits(2+ Parents) because that's what 'git whatchenged' does.
+        // Ignore commit with 0 parent (initial commit) because there's nothing to diff against.
 
         if commit.parent_count() == 1 {
             let prev_commit = commit.parent(0)?;
@@ -118,15 +118,16 @@ mod tests {
     #[test]
     fn test_track_file_rename_in_commit() -> Result<(), git2::Error> {
         let repo_manager =
-            RepoManager::clone_repo("https://github.com/reddevilmidzy/queensac", Some("main"))?;
-        let commit = find_last_commit_id("Cargo.toml", &repo_manager.get_repo())?;
+            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", Some("main"))?;
+        let commit = find_last_commit_id("main.rs", &repo_manager.get_repo())?;
+        // see https://github.com/reddevilmidzy/kingsac/commit/2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7
         assert_eq!(
             commit.id().to_string(),
-            "45203e841d42cf393e4d0a786b0a1a4ab267e91d"
+            "2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7"
         );
         assert_eq!(
-            track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "Cargo.toml")?,
-            Some("rook/Cargo.toml".to_string())
+            track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "main.rs")?,
+            Some("src/main.rs".to_string())
         );
 
         Ok(())
@@ -135,7 +136,7 @@ mod tests {
     #[test]
     fn test_file_exists_in_repo() -> Result<(), git2::Error> {
         let repo_manager =
-            RepoManager::clone_repo("https://github.com/reddevilmidzy/reddevilmidzy", None)?;
+            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", None)?;
 
         assert!(file_exists_in_repo(repo_manager.get_repo(), "README.md")?);
 
@@ -153,37 +154,47 @@ mod tests {
     /// file movement pattern at a higher level using GitHub URLs.
     ///
     /// The test verifies the following file movement pattern:
-    /// 1. Initially located at: tmp.txt (root directory)
-    /// 2. First moved to: dockerfile_history/tmp.txt
-    /// 3. Finally moved to: img/tmp.txt
+    /// 1. Initially located at: test_for_multiple_moves.rs (root directory)
+    /// 2. First moved to: foo/test_for_multiple_moves.rs
+    /// 3. Finally moved to: bar/test_for_multiple_moves.rs
     fn test_track_file_rename_in_commit_with_multiple_moves() -> Result<(), git2::Error> {
-        let repo_manager = RepoManager::clone_repo(
-            "https://github.com/reddevilmidzy/zero2prod",
-            Some("test_for_queensac"),
-        )?;
+        let repo_manager =
+            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", None)?;
 
-        // 1. Find the commit where tmp.txt was moved to dockerfile_history/tmp.txt
-        let commit = find_last_commit_id("tmp.txt", &repo_manager.get_repo())?;
-        let new_path = track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "tmp.txt")?;
-        assert_eq!(new_path, Some("dockerfile_history/tmp.txt".to_string()));
-
-        // 2. Find the commit where dockerfile_history/tmp.txt was moved to img/tmp.txt
-        let commit = find_last_commit_id("dockerfile_history/tmp.txt", &repo_manager.get_repo())?;
+        // 1. Find the commit where test_for_multiple_moves.rs was moved to foo/test_for_multiple_moves.rs
+        let commit = find_last_commit_id("test_for_multiple_moves.rs", &repo_manager.get_repo())?;
         let new_path = track_file_rename_in_commit(
             &repo_manager.get_repo(),
             &commit,
-            "dockerfile_history/tmp.txt",
+            "test_for_multiple_moves.rs",
         )?;
-        assert_eq!(new_path, Some("img/tmp.txt".to_string()));
+        assert_eq!(new_path, Some("foo/test_for_multiple_moves.rs".to_string()));
+
+        // 2. Find the commit where foo/test_for_multiple_moves.rs was moved to bar/test_for_multiple_moves.rs
+        let commit =
+            find_last_commit_id("foo/test_for_multiple_moves.rs", &repo_manager.get_repo())?;
+        let new_path = track_file_rename_in_commit(
+            &repo_manager.get_repo(),
+            &commit,
+            "foo/test_for_multiple_moves.rs",
+        )?;
+        assert_eq!(new_path, Some("bar/test_for_multiple_moves.rs".to_string()));
 
         // 3. Verify that the file exists at the final location
         assert!(file_exists_in_repo(
             &repo_manager.get_repo(),
-            "img/tmp.txt"
+            "bar/test_for_multiple_moves.rs"
         )?);
 
         // 4. Verify that the file doesn't exist at the original location
-        assert!(!file_exists_in_repo(&repo_manager.get_repo(), "tmp.txt")?);
+        assert!(!file_exists_in_repo(
+            &repo_manager.get_repo(),
+            "test_for_multiple_moves.rs"
+        )?);
+        assert!(!file_exists_in_repo(
+            &repo_manager.get_repo(),
+            "foo/test_for_multiple_moves.rs"
+        )?);
 
         Ok(())
     }
