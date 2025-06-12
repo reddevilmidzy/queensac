@@ -1,4 +1,4 @@
-use crate::GitHubUrl;
+use crate::{GitHubUrl, RepoManager};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
@@ -31,7 +31,10 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
                     if let Some(parsed) = GitHubUrl::parse(url) {
-                        if let Ok(Some(new_path)) = parsed.find_current_location() {
+                        if let Ok(Some(new_path)) = RepoManager::from_github_url(&parsed)
+                            .unwrap()
+                            .find_current_location(&parsed)
+                        {
                             return LinkCheckResult::GitHubFileMoved(new_path);
                         }
                     }
