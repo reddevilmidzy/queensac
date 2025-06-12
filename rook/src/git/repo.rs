@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf, time};
 
 use git2::Repository;
 use tracing::error;
@@ -60,9 +60,13 @@ impl RepoManager {
     /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
     pub fn clone_repo(repo_url: &str, branch: Option<&str>) -> Result<Self, git2::Error> {
         let temp_dir = env::temp_dir().join(format!(
-            "github_repo_temp/{}/{}",
+            "github_repo_temp/{}/{}_{}",
             repo_url.split('/').nth(3).unwrap_or("unknown"),
-            repo_url.split('/').nth(4).unwrap_or("unknown")
+            repo_url.split('/').nth(4).unwrap_or("unknown"),
+            time::SystemTime::now()
+                .duration_since(time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
 
         let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
