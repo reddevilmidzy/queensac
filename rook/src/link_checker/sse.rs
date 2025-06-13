@@ -150,3 +150,63 @@ pub async fn stream_link_checks(
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+    use futures::StreamExt;
+    use serde_json::Value;
+
+    #[tokio::test]
+    async fn test_stream_link_checks() {
+        let repo_url = "https://github.com/reddevilmidzy/kingsac".to_string();
+        let branch = Some("main".to_string());
+        let sse = stream_link_checks(repo_url, branch).await;
+        let mut stream = sse.into_response().into_body().into_data_stream();
+
+        // 스트림에서 이벤트를 수집
+        let mut events = Vec::new();
+        let mut buffer = String::new();
+
+        while let Some(chunk) = stream.next().await {
+            if let Ok(chunk) = chunk {
+                if let Ok(text) = String::from_utf8(chunk.to_vec()) {
+                    buffer.push_str(&text);
+
+                    if let Some(event_end) = buffer.find("\n\n") {
+                        let event_str = buffer[..event_end].to_string();
+                        buffer = buffer[event_end + 2..].to_string();
+                        // "data: " 접두사를 제거하고 JSON 파싱
+                        if let Some(json_str) = event_str.strip_prefix("data: ") {
+                            if let Ok(json) = serde_json::from_str::<Value>(json_str) {
+                                events.push(json);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 최소한 하나의 이벤트는 있어야 함
+        assert!(!events.is_empty());
+
+        // 마지막 이벤트는 요약 정보여야 함
+        if let Some(last_event) = events.last() {
+            assert!(last_event.get("total").is_some());
+            assert!(last_event.get("total").unwrap().as_u64().unwrap() > 0);
+            assert!(last_event.get("valid").is_some());
+            assert!(last_event.get("invalid").is_some());
+            assert!(last_event.get("redirect").is_some());
+            assert!(last_event.get("moved").is_some());
+        }
+
+        // 첫 번째 이벤트는 링크 체크 결과여야 함
+        if let Some(first_event) = events.first() {
+            assert!(first_event.get("url").is_some());
+            assert!(first_event.get("file_path").is_some());
+            assert!(first_event.get("line_number").is_some());
+            assert!(first_event.get("status").is_some());
+        }
+    }
+}
