@@ -8,12 +8,16 @@ use queensac::{cancel_repository_checker, check_repository_links, stream_link_ch
 use axum::{
     Json, Router,
     extract::{Query, State},
-    http::StatusCode,
+    http::{
+        HeaderValue, Method, StatusCode,
+        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    },
     routing::{delete, get, post},
 };
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
+use tower_http::cors::CorsLayer;
 use tracing::{Level, error, info};
 use tracing_subscriber::FmtSubscriber;
 
@@ -122,8 +126,7 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
         .pretty()
         .init();
 
-    info!("Starting Queensac service...");
-
+    info!("Starting queensac service...");
     dotenvy::dotenv().ok();
 
     // 이메일 클라이언트 설정 로드
@@ -154,6 +157,15 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
 }
 
 fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin([
+            HeaderValue::from_static("https://redddy.com"),
+            HeaderValue::from_static("https://www.redddy.com"),
+        ])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+        .allow_headers([CONTENT_TYPE, AUTHORIZATION, ACCEPT])
+        .allow_credentials(true);
+
     Router::new()
         .route("/", get(|| async { "Sacrifice the Queen!!" }))
         .route("/health", get(health_check))
@@ -161,4 +173,5 @@ fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
         .route("/check", delete(cancel_handler))
         .route("/stream", get(stream_handler))
         .with_state((pool, email_client))
+        .layer(cors)
 }
