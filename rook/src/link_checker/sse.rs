@@ -27,6 +27,57 @@ pub struct LinkCheckSummaryEvent {
     pub moved: usize,
 }
 
+#[derive(Debug)]
+struct LinkCheckCounters {
+    total: AtomicUsize,
+    valid: AtomicUsize,
+    invalid: AtomicUsize,
+    redirect: AtomicUsize,
+    moved: AtomicUsize,
+}
+
+impl LinkCheckCounters {
+    fn new() -> Self {
+        Self {
+            total: AtomicUsize::new(0),
+            valid: AtomicUsize::new(0),
+            invalid: AtomicUsize::new(0),
+            redirect: AtomicUsize::new(0),
+            moved: AtomicUsize::new(0),
+        }
+    }
+
+    fn increment_total(&self) {
+        self.total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn increment_valid(&self) {
+        self.valid.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn increment_invalid(&self) {
+        self.invalid.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn increment_redirect(&self) {
+        self.redirect.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn increment_moved(&self) {
+        self.moved.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn to_summary(&self) -> LinkCheckSummaryEvent {
+        LinkCheckSummaryEvent {
+            total: self.total.load(Ordering::Relaxed),
+            valid: self.valid.load(Ordering::Relaxed),
+            invalid: self.invalid.load(Ordering::Relaxed),
+            redirect: self.redirect.load(Ordering::Relaxed),
+            moved: self.moved.load(Ordering::Relaxed),
+        }
+    }
+}
+
 #[instrument(skip(), fields(repo_url = repo_url))]
 pub async fn stream_link_checks(
     repo_url: String,
@@ -41,43 +92,23 @@ pub async fn stream_link_checks(
         Ok(links) => {
             info!("Found {} links to check", links.len());
 
-            let total = Arc::new(AtomicUsize::new(0));
-            let valid = Arc::new(AtomicUsize::new(0));
-            let invalid = Arc::new(AtomicUsize::new(0));
-            let redirect = Arc::new(AtomicUsize::new(0));
-            let moved = Arc::new(AtomicUsize::new(0));
+            let counters = Arc::new(LinkCheckCounters::new());
 
             let links_stream = stream::iter(links);
             let events_stream = links_stream
                 .map({
-                    let total = Arc::clone(&total);
-                    let valid = Arc::clone(&valid);
-                    let invalid = Arc::clone(&invalid);
-                    let redirect = Arc::clone(&redirect);
-                    let moved = Arc::clone(&moved);
+                    let counters = Arc::clone(&counters);
                     move |link| {
-                        let total = Arc::clone(&total);
-                        let valid = Arc::clone(&valid);
-                        let invalid = Arc::clone(&invalid);
-                        let redirect = Arc::clone(&redirect);
-                        let moved = Arc::clone(&moved);
-
+                        let counters = Arc::clone(&counters);
                         async move {
                             let result = check_link(&link.url).await;
 
-                            // 카운터 업데이트
-                            total.fetch_add(1, Ordering::Relaxed);
+                            counters.increment_total();
                             match &result {
-                                LinkCheckResult::Valid => valid.fetch_add(1, Ordering::Relaxed),
-                                LinkCheckResult::Invalid(_) => {
-                                    invalid.fetch_add(1, Ordering::Relaxed)
-                                }
-                                LinkCheckResult::Redirect(_) => {
-                                    redirect.fetch_add(1, Ordering::Relaxed)
-                                }
-                                LinkCheckResult::GitHubFileMoved(_) => {
-                                    moved.fetch_add(1, Ordering::Relaxed)
-                                }
+                                LinkCheckResult::Valid => counters.increment_valid(),
+                                LinkCheckResult::Invalid(_) => counters.increment_invalid(),
+                                LinkCheckResult::Redirect(_) => counters.increment_redirect(),
+                                LinkCheckResult::GitHubFileMoved(_) => counters.increment_moved(),
                             };
 
                             let event = LinkCheckEvent {
@@ -115,19 +146,8 @@ pub async fn stream_link_checks(
                 })
                 .buffer_unordered(10)
                 .chain(stream::once(async move {
-                    let total = Arc::clone(&total);
-                    let valid = Arc::clone(&valid);
-                    let invalid = Arc::clone(&invalid);
-                    let redirect = Arc::clone(&redirect);
-                    let moved = Arc::clone(&moved);
-
-                    let summary = LinkCheckSummaryEvent {
-                        total: total.load(Ordering::Relaxed),
-                        valid: valid.load(Ordering::Relaxed),
-                        invalid: invalid.load(Ordering::Relaxed),
-                        redirect: redirect.load(Ordering::Relaxed),
-                        moved: moved.load(Ordering::Relaxed),
-                    };
+                    let counters = Arc::clone(&counters);
+                    let summary = counters.to_summary();
 
                     match Event::default().json_data(summary) {
                         Ok(event) => Ok(event),
@@ -188,10 +208,9 @@ mod tests {
             }
         }
 
-        // 최소한 하나의 이벤트는 있어야 함
-        assert!(!events.is_empty());
+        assert!(!events.is_empty(), "No events were received");
 
-        // 마지막 이벤트는 요약 정보여야 함
+        assert!(events.last().is_some(), "Last event should exist");
         if let Some(last_event) = events.last() {
             assert!(last_event.get("total").is_some());
             assert!(last_event.get("total").unwrap().as_u64().unwrap() > 0);
@@ -201,7 +220,7 @@ mod tests {
             assert!(last_event.get("moved").is_some());
         }
 
-        // 첫 번째 이벤트는 링크 체크 결과여야 함
+        assert!(events.first().is_some(), "First event should exist");
         if let Some(first_event) = events.first() {
             assert!(first_event.get("url").is_some());
             assert!(first_event.get("file_path").is_some());
