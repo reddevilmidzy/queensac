@@ -1953,7 +1953,6 @@ dependencies = [
  "shuttle-shared-db",
  "sqlx",
  "tokio",
- "tokio-stream",
  "tokio-util",
  "tracing",
  "tracing-subscriber",
