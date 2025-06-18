@@ -159,8 +159,8 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
 fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
     let cors = CorsLayer::new()
         .allow_origin([
-            HeaderValue::from_static("https://redddy.com"),
-            HeaderValue::from_static("https://www.redddy.com"),
+            HeaderValue::from_static("https://queens.ac"),
+            HeaderValue::from_static("https://www.queens.ac"),
         ])
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         .allow_headers([CONTENT_TYPE, AUTHORIZATION, ACCEPT])
