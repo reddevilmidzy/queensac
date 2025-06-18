@@ -1,3 +1,8 @@
 email_client:
   sender_email: "${POSTMARK_SENDER_EMAIL}"
   authorization_token: "${POSTMARK_AUTH_TOKEN}"
+
+cors:
+  allowed_origins:
+    - "https://queens.ac"
+    - "https://www.queens.ac"

@@ -1,3 +1,9 @@
 email_client:
   sender_email: "noreply@redddy.com"
   authorization_token: "test-token"
+
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "https://queens.ac"
+    - "https://www.queens.ac"

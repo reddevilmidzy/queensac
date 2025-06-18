@@ -157,11 +157,21 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
 }
 
 fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
+    let configuration = get_configuration().expect("Failed to read configuration.");
+
+    let allowed_origins: Vec<HeaderValue> = configuration
+        .cors
+        .allowed_origins
+        .iter()
+        .map(|origin| {
+            HeaderValue::from_str(origin)
+                .map_err(|e| format!("Invalid CORS origin '{}': {}", origin, e))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .expect("Failed to parse CORS origins");
+
     let cors = CorsLayer::new()
-        .allow_origin([
-            HeaderValue::from_static("https://queens.ac"),
-            HeaderValue::from_static("https://www.queens.ac"),
-        ])
+        .allow_origin(allowed_origins)
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         .allow_headers([CONTENT_TYPE, AUTHORIZATION, ACCEPT])
         .allow_credentials(true);
