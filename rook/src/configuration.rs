@@ -11,6 +11,7 @@ const PRODUCTION_CONFIG: &str = include_str!("../configuration/production.yaml")
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub email_client: EmailClientSettings,
+    pub cors: CorsSettings,
 }
 
 #[derive(Debug, Deserialize)]
@@ -20,6 +21,11 @@ pub struct EmailClientSettings {
     #[serde(deserialize_with = "deserialize_secret")]
     pub authorization_token: Secret<String>,
     pub timeout_seconds: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CorsSettings {
+    pub allowed_origins: Vec<String>,
 }
 
 fn deserialize_secret<'de, D>(deserializer: D) -> Result<Secret<String>, D::Error>
