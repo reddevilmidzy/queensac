@@ -8,6 +8,29 @@ pub enum LinkCheckResult {
     GitHubFileMoved(String),
 }
 
+/// Handles GitHub 404 errors by attempting to find the current file location
+fn handle_github_404(url: &str) -> LinkCheckResult {
+    let parsed = match GitHubUrl::parse(url) {
+        Some(parsed) => parsed,
+        None => {
+            return LinkCheckResult::Invalid(format!("Invalid GitHub URL format: {}", url));
+        }
+    };
+
+    let repo_manager = match RepoManager::from_github_url(&parsed) {
+        Ok(repo_manager) => repo_manager,
+        Err(e) => {
+            return LinkCheckResult::Invalid(format!("Error cloning repository: {}", e));
+        }
+    };
+
+    match repo_manager.find_current_location(&parsed) {
+        Ok(Some(new_path)) => LinkCheckResult::GitHubFileMoved(new_path.to_string()),
+        Ok(None) => LinkCheckResult::Invalid(format!("File not found in repository: {}", url)),
+        Err(e) => LinkCheckResult::Invalid(format!("Error finding file location: {}", e)),
+    }
+}
+
 pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -30,38 +53,7 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     }
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
-                    if let Some(parsed) = GitHubUrl::parse(url) {
-                        match RepoManager::from_github_url(&parsed) {
-                            Ok(repo_manager) => match repo_manager.find_current_location(&parsed) {
-                                Ok(Some(new_path)) => {
-                                    return LinkCheckResult::GitHubFileMoved(new_path.to_string());
-                                }
-                                Ok(None) => {
-                                    return LinkCheckResult::Invalid(format!(
-                                        "File not found in repository: {}",
-                                        url
-                                    ));
-                                }
-                                Err(e) => {
-                                    return LinkCheckResult::Invalid(format!(
-                                        "Error finding file location: {}",
-                                        e
-                                    ));
-                                }
-                            },
-                            Err(e) => {
-                                return LinkCheckResult::Invalid(format!(
-                                    "Error cloning repository: {}",
-                                    e
-                                ));
-                            }
-                        }
-                    } else {
-                        return LinkCheckResult::Invalid(format!(
-                            "Invalid GitHub URL format: {}",
-                            url
-                        ));
-                    }
+                    return handle_github_404(url);
                 } else {
                     return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
                 }
