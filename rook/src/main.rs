@@ -95,8 +95,8 @@ async fn cancel_handler(
         .send_email(
             payload.subscriber.email().clone(),
             "Repository checker cancelled".to_string(),
-            "Repository checker cancelled".to_string(),
-            "Repository checker cancelled".to_string(),
+            "<p>Repository checker cancelled</p>".to_string(),
+            "broadcast".to_string(),
         )
         .await
         .map_err(|e| {

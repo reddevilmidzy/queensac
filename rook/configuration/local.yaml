@@ -1,5 +1,5 @@
 email_client:
-  sender_email: "noreply@redddy.com"
+  sender_email: "noreply@queens.ac"
   authorization_token: "test-token"
 
 cors:
