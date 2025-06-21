@@ -18,7 +18,7 @@ struct CheckResponse {
 mock! {
     #[derive(Clone)]
     CheckService {
-        fn check_repository(&self, subscriber: NewSubscriber, interval_secs: Option<u64>) -> String;
+        fn check_repository(&self, subscriber: NewSubscriber) -> String;
         fn cancel_check(&self, subscriber: NewSubscriber) -> ();
     }
 }
@@ -29,10 +29,9 @@ async fn test_check_post() {
     let mut mock_service = MockCheckService::new();
     mock_service
         .expect_check_repository()
-        .returning(|subscriber, interval_secs| {
+        .returning(|subscriber| {
             if subscriber.repository_url().url() == create_test_repo_url().url()
                 && subscriber.branch() == Some(&"main".to_string())
-                && interval_secs == Some(300)
             {
                 "test-task-id".to_string()
             } else {
@@ -50,8 +49,7 @@ async fn test_check_post() {
             post(move |Json(params): Json<CheckRequest>| {
                 let mock_service = mock_service_clone.clone();
                 async move {
-                    let task_id =
-                        mock_service.check_repository(params.subscriber, params.interval_secs);
+                    let task_id = mock_service.check_repository(params.subscriber);
                     Json(CheckResponse { task_id })
                 }
             }),
@@ -64,7 +62,6 @@ async fn test_check_post() {
         .post(test_router.get_url("/check"))
         .json(&CheckRequest {
             subscriber: create_test_subscriber(),
-            interval_secs: Some(300),
         })
         .send()
         .await
@@ -138,8 +135,7 @@ async fn test_check_post_invalid_repo_url() {
             post(move |Json(params): Json<CheckRequest>| {
                 let mock_service = mock_service_clone.clone();
                 async move {
-                    let task_id =
-                        mock_service.check_repository(params.subscriber, params.interval_secs);
+                    let task_id = mock_service.check_repository(params.subscriber);
                     Json(CheckResponse { task_id })
                 }
             }),

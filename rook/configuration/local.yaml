@@ -7,3 +7,6 @@ cors:
     - "http://localhost:3000"
     - "https://queens.ac"
     - "https://www.queens.ac"
+
+repository_checker:
+  interval_seconds: 120  # 2 minutes for local development
