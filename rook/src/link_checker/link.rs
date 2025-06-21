@@ -31,14 +31,37 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {
                     if let Some(parsed) = GitHubUrl::parse(url) {
-                        if let Ok(Some(new_path)) = RepoManager::from_github_url(&parsed)
-                            .unwrap()
-                            .find_current_location(&parsed)
-                        {
-                            return LinkCheckResult::GitHubFileMoved(new_path);
+                        match RepoManager::from_github_url(&parsed) {
+                            Ok(repo_manager) => match repo_manager.find_current_location(&parsed) {
+                                Ok(Some(new_path)) => {
+                                    return LinkCheckResult::GitHubFileMoved(new_path.to_string());
+                                }
+                                Ok(None) => {
+                                    return LinkCheckResult::Invalid(format!(
+                                        "File not found in repository: {}",
+                                        url
+                                    ));
+                                }
+                                Err(e) => {
+                                    return LinkCheckResult::Invalid(format!(
+                                        "Error finding file location: {}",
+                                        e
+                                    ));
+                                }
+                            },
+                            Err(e) => {
+                                return LinkCheckResult::Invalid(format!(
+                                    "Error cloning repository: {}",
+                                    e
+                                ));
+                            }
                         }
+                    } else {
+                        return LinkCheckResult::Invalid(format!(
+                            "Invalid GitHub URL format: {}",
+                            url
+                        ));
                     }
-                    return LinkCheckResult::Invalid(format!("File not found: {}", url));
                 } else {
                     return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
                 }
