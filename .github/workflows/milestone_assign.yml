@@ -30,10 +30,14 @@ jobs:
             if (milestones.data.length > 0) {
               const currentMilestone = milestones.data[0];
               
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                milestone: currentMilestone.number
-              });
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  milestone: currentMilestone.number
+                });
+              } catch (error) {
+                console.error('Failed to update issue with milestone:', error);
+              }
             }
