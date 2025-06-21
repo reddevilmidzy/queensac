@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize)]
 pub struct CheckRequest {
     pub subscriber: NewSubscriber,
-    pub interval_secs: Option<u64>,
 }
 
 #[derive(Deserialize, Serialize)]

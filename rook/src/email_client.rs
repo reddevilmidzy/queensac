@@ -32,7 +32,7 @@ impl EmailClient {
         recipient: SubscriberEmail,
         subject: String,
         html_content: String,
-        text_content: String,
+        message_stream: String,
     ) -> Result<(), String> {
         let url = format!("{}/email", self.base_url);
         let request_body = SendEmailRequest {
@@ -40,7 +40,7 @@ impl EmailClient {
             to: recipient.as_ref().to_owned(),
             subject: subject.to_owned(),
             html_body: html_content.to_owned(),
-            text_body: text_content.to_owned(),
+            message_stream: message_stream.to_owned(),
         };
 
         let response = self
@@ -79,7 +79,7 @@ struct SendEmailRequest {
     to: String,
     subject: String,
     html_body: String,
-    text_body: String,
+    message_stream: String,
 }
 
 #[cfg(test)]
@@ -111,7 +111,7 @@ mod tests {
                 "To": "recipient@example.com",
                 "Subject": "Test subject",
                 "HtmlBody": "<p>Test HTML content</p>",
-                "TextBody": "Test text content"
+                "MessageStream": "broadcast"
             })))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
@@ -124,7 +124,7 @@ mod tests {
                 recipient,
                 "Test subject".to_string(),
                 "<p>Test HTML content</p>".to_string(),
-                "Test text content".to_string(),
+                "broadcast".to_string(),
             )
             .await;
 
@@ -159,7 +159,7 @@ mod tests {
                 recipient,
                 "Test subject".to_string(),
                 "<p>Test HTML content</p>".to_string(),
-                "Test text content".to_string(),
+                "broadcast".to_string(),
             )
             .await;
 

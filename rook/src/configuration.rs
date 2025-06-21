@@ -12,6 +12,7 @@ const PRODUCTION_CONFIG: &str = include_str!("../configuration/production.yaml")
 pub struct Settings {
     pub email_client: EmailClientSettings,
     pub cors: CorsSettings,
+    pub repository_checker: RepositoryCheckerSettings,
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,6 +27,11 @@ pub struct EmailClientSettings {
 #[derive(Debug, Deserialize)]
 pub struct CorsSettings {
     pub allowed_origins: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepositoryCheckerSettings {
+    pub interval_seconds: u64,
 }
 
 fn deserialize_secret<'de, D>(deserializer: D) -> Result<Secret<String>, D::Error>

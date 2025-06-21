@@ -36,17 +36,13 @@ impl EmailVerificationService {
             "#,
             verification.code.expose_secret()
         );
-        let text_content = format!(
-            "귀하의 이메일 인증 코드는 {} 입니다. 이 코드는 10분 후에 만료됩니다.",
-            verification.code.expose_secret()
-        );
 
         self.email_client
             .send_email(
                 subscriber_email,
                 subject.to_string(),
                 html_content,
-                text_content,
+                "broadcast".to_string(),
             )
             .await
     }

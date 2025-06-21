@@ -1,6 +1,6 @@
 // todo 어떤게 깔끔한 import 구조인지, 조사하기. 베스트 쁘락띠쓰 찾기.
 use queensac::api::dto::*;
-use queensac::configuration::get_configuration;
+use queensac::configuration::{Settings, get_configuration};
 use queensac::db::init_db;
 use queensac::email_client::EmailClient;
 use queensac::{cancel_repository_checker, check_repository_links, stream_link_checks};
@@ -43,7 +43,7 @@ async fn health_check() -> &'static str {
 }
 
 async fn check_handler(
-    State((_pool, email_client)): State<(PgPool, Arc<EmailClient>)>,
+    State((_pool, email_client, configuration)): State<(PgPool, Arc<EmailClient>, Arc<Settings>)>,
     Json(payload): Json<CheckRequest>,
 ) -> Result<&'static str, StatusCode> {
     info!(
@@ -52,9 +52,7 @@ async fn check_handler(
         payload.subscriber.branch(),
         payload.subscriber.email().as_str()
     );
-    // FIXME 일단 interval_secs 는 유저가 수정할 수 없게 할 거긴 한데, 일단 테스트할 때 편하게 요청을 받아보자.
-    let interval = payload.interval_secs.unwrap_or(120);
-    let interval = Duration::from_secs(interval);
+    let interval = Duration::from_secs(configuration.repository_checker.interval_seconds);
     if let Err(e) = spawn_repository_checker(
         payload.subscriber.repository_url().url(),
         payload.subscriber.branch().cloned(),
@@ -69,8 +67,8 @@ async fn check_handler(
         .send_email(
             payload.subscriber.email().clone(),
             "Repository checker started".to_string(),
-            "Repository checker started".to_string(),
-            "Repository checker started".to_string(),
+            "<p>Repository checker started</p>".to_string(),
+            "broadcast".to_string(),
         )
         .await
         .map_err(|e| {
@@ -81,7 +79,7 @@ async fn check_handler(
 }
 
 async fn cancel_handler(
-    State((_pool, email_client)): State<(PgPool, Arc<EmailClient>)>,
+    State((_pool, email_client, _configuration)): State<(PgPool, Arc<EmailClient>, Arc<Settings>)>,
     Json(payload): Json<CancelRequest>,
 ) -> Result<&'static str, StatusCode> {
     if let Err(e) = cancel_repository_checker(
@@ -97,8 +95,8 @@ async fn cancel_handler(
         .send_email(
             payload.subscriber.email().clone(),
             "Repository checker cancelled".to_string(),
-            "Repository checker cancelled".to_string(),
-            "Repository checker cancelled".to_string(),
+            "<p>Repository checker cancelled</p>".to_string(),
+            "broadcast".to_string(),
         )
         .await
         .map_err(|e| {
@@ -151,14 +149,13 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
 
     init_db(&pool).await.expect("Failed to initialize database");
 
-    let app = app(pool, Arc::new(email_client));
+    let configuration = Arc::new(configuration);
+    let app = app(pool, Arc::new(email_client), configuration);
 
     Ok(app.into())
 }
 
-fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
-    let configuration = get_configuration().expect("Failed to read configuration.");
-
+fn app(pool: PgPool, email_client: Arc<EmailClient>, configuration: Arc<Settings>) -> Router {
     let allowed_origins: Vec<HeaderValue> = configuration
         .cors
         .allowed_origins
@@ -182,6 +179,6 @@ fn app(pool: PgPool, email_client: Arc<EmailClient>) -> Router {
         .route("/check", post(check_handler))
         .route("/check", delete(cancel_handler))
         .route("/stream", get(stream_handler))
-        .with_state((pool, email_client))
+        .with_state((pool, email_client, configuration))
         .layer(cors)
 }
