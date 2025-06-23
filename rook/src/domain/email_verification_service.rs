@@ -2,6 +2,7 @@ use crate::domain::{SubscriberEmail, email_verification::EmailVerificationStore}
 use crate::email_client::EmailClient;
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
+use std::time::Duration;
 
 pub struct EmailVerificationService {
     store: EmailVerificationStore,
@@ -38,11 +39,13 @@ impl EmailVerificationService {
         );
 
         self.email_client
-            .send_email(
+            .send_email_with_retry(
                 subscriber_email,
                 subject.to_string(),
                 html_content,
                 "broadcast".to_string(),
+                3,
+                Duration::from_secs(60),
             )
             .await
     }

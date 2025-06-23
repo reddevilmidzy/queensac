@@ -3,7 +3,6 @@ use reqwest::Client;
 use secrecy::{ExposeSecret, Secret};
 use std::time::Duration;
 
-#[derive(Clone)]
 pub struct EmailClient {
     http_client: Client,
     base_url: String,
@@ -67,6 +66,44 @@ impl EmailClient {
                     "Failed to send email. Status: {}. Error: {}",
                     status, error_message
                 ))
+            }
+        }
+    }
+
+    pub async fn send_email_with_retry(
+        &self,
+        recipient: SubscriberEmail,
+        subject: String,
+        html_content: String,
+        message_stream: String,
+        max_retries: usize,
+        retry_delay: Duration,
+    ) -> Result<(), String> {
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            match self
+                .send_email(
+                    recipient.clone(),
+                    subject.clone(),
+                    html_content.clone(),
+                    message_stream.clone(),
+                )
+                .await
+            {
+                Ok(_) => {
+                    return Ok(());
+                }
+                Err(e) => {
+                    if attempt >= max_retries {
+                        return Err(format!(
+                            "Failed to send email after {} attempts. Last error: {}",
+                            attempt, e
+                        ));
+                    } else {
+                        tokio::time::sleep(retry_delay).await;
+                    }
+                }
             }
         }
     }
@@ -165,5 +202,108 @@ mod tests {
 
         // Assert
         assert!(outcome.is_err());
+    }
+
+    #[tokio::test]
+    async fn send_email_with_retry_succeeds_on_first_try() {
+        let mock_server = wiremock::MockServer::start().await;
+        let sender = SubscriberEmail::new("sender@example.com").unwrap();
+        let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new("test-token".to_string()),
+            Duration::from_secs(10),
+        );
+
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email_with_retry(
+                recipient,
+                "subject".to_string(),
+                "<p>content</p>".to_string(),
+                "broadcast".to_string(),
+                3,
+                Duration::from_millis(10),
+            )
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn send_email_with_retry_succeeds_after_retries() {
+        let mock_server = wiremock::MockServer::start().await;
+        let sender = SubscriberEmail::new("sender@example.com").unwrap();
+        let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new("test-token".to_string()),
+            Duration::from_secs(10),
+        );
+
+        // 처음 두 번은 실패, 세 번째는 성공
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(500))
+            .up_to_n_times(2)
+            .expect(2)
+            .mount(&mock_server)
+            .await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email_with_retry(
+                recipient,
+                "subject".to_string(),
+                "<p>content</p>".to_string(),
+                "broadcast".to_string(),
+                3,
+                Duration::from_millis(10),
+            )
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn send_email_with_retry_fails_after_all_retries() {
+        let mock_server = wiremock::MockServer::start().await;
+        let sender = SubscriberEmail::new("sender@example.com").unwrap();
+        let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
+        let email_client = EmailClient::new(
+            mock_server.uri(),
+            sender,
+            Secret::new("test-token".to_string()),
+            Duration::from_secs(10),
+        );
+
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(500))
+            .expect(3)
+            .mount(&mock_server)
+            .await;
+
+        let result = email_client
+            .send_email_with_retry(
+                recipient,
+                "subject".to_string(),
+                "<p>content</p>".to_string(),
+                "broadcast".to_string(),
+                3,
+                Duration::from_millis(10),
+            )
+            .await;
+
+        assert!(result.is_err());
     }
 }
