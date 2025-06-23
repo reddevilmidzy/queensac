@@ -72,11 +72,13 @@ async fn check_handler(
         return Err(StatusCode::BAD_REQUEST);
     }
     email_client
-        .send_email(
+        .send_email_with_retry(
             payload.subscriber.email().clone(),
             "Repository checker started".to_string(),
             "<p>Repository checker started</p>".to_string(),
             "broadcast".to_string(),
+            3,
+            Duration::from_secs(60),
         )
         .await
         .map_err(|e| {
@@ -100,11 +102,13 @@ async fn cancel_handler(
         return Err(StatusCode::BAD_REQUEST);
     }
     email_client
-        .send_email(
+        .send_email_with_retry(
             payload.subscriber.email().clone(),
             "Repository checker cancelled".to_string(),
             "<p>Repository checker cancelled</p>".to_string(),
             "broadcast".to_string(),
+            3,
+            Duration::from_secs(60),
         )
         .await
         .map_err(|e| {

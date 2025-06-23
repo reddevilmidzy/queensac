@@ -225,11 +225,13 @@ pub async fn check_repository_links(
 
                         // Send email report
                         let (subject, html_content) = summary.generate_email_content(repo_url, branch.as_deref());
-                        if let Err(e) = email_client.send_email(
+                        if let Err(e) = email_client.send_email_with_retry(
                             subscriber_email.clone(),
                             subject,
                             html_content,
                             "broadcast".to_string(),
+                            3,
+                            Duration::from_secs(60),
                         ).await {
                             error!("Failed to send email report: {}", e);
                         } else {
