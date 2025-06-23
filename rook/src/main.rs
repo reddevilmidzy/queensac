@@ -14,12 +14,12 @@ use axum::{
     },
     routing::{delete, get, post},
 };
+use chrono::{FixedOffset, Utc};
 use sqlx::PgPool;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{fmt, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 use tracing::{Level, error, info};
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{FmtSubscriber, fmt::format::Writer, fmt::time::FormatTime};
 
 async fn spawn_repository_checker(
     repo_url: &str,
@@ -121,6 +121,7 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
         .with_thread_names(true)
         .with_level(true)
         .with_ansi(true)
+        .with_timer(KoreanTime)
         .pretty()
         .init();
 
@@ -181,4 +182,31 @@ fn app(pool: PgPool, email_client: Arc<EmailClient>, configuration: Arc<Settings
         .route("/stream", get(stream_handler))
         .with_state((pool, email_client, configuration))
         .layer(cors)
+}
+
+/// The offset in seconds for Korean Standard Time (UTC+9)
+const KST_OFFSET: i32 = 9 * 3600;
+
+/// A time formatter that outputs timestamps in Korean Standard Time (KST)
+///
+/// This struct implements the `FormatTime` trait to format timestamps in KST
+/// with millisecond precision and timezone offset.
+///
+/// # Format
+/// The output format is: `YYYY-MM-DDThh:mm:ss.sss+09:00`
+///
+/// # Example
+/// ```
+/// use tracing_subscriber::fmt::time::FormatTime;
+///
+/// let formatter = KoreanTime;
+/// // Will output something like: 2024-02-14T15:30:45.123+09:00
+/// ```
+struct KoreanTime;
+
+impl FormatTime for KoreanTime {
+    fn format_time(&self, w: &mut Writer<'_>) -> Result<(), fmt::Error> {
+        let now = Utc::now().with_timezone(&FixedOffset::east_opt(KST_OFFSET).unwrap());
+        write!(w, "{}", now.format("%Y-%m-%dT%H:%M:%S%.3f%:z"))
+    }
 }
