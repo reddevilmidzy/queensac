@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Cache cargo binaries
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-bin-${{ hashFiles('**/Cargo.lock') }}
@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -65,7 +65,7 @@ jobs:
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cache Cargo build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: rook/target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
