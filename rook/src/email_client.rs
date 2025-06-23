@@ -3,7 +3,6 @@ use reqwest::Client;
 use secrecy::{ExposeSecret, Secret};
 use std::time::Duration;
 
-#[derive(Clone)]
 pub struct EmailClient {
     http_client: Client,
     base_url: String,

@@ -2,6 +2,7 @@
 use queensac::api::dto::*;
 use queensac::configuration::{Settings, get_configuration};
 use queensac::db::init_db;
+use queensac::domain::SubscriberEmail;
 use queensac::email_client::EmailClient;
 use queensac::{cancel_repository_checker, check_repository_links, stream_link_checks};
 
@@ -25,12 +26,17 @@ async fn spawn_repository_checker(
     repo_url: &str,
     branch: Option<String>,
     interval: Duration,
+    email_client: Arc<EmailClient>,
+    subscriber_email: SubscriberEmail,
 ) -> Result<(), String> {
     let repo_url = repo_url.to_string();
     info!("Spawning repository checker for {}", repo_url);
     tokio::spawn(async move {
         info!("Starting repository link check for {}", repo_url);
-        if let Err(e) = check_repository_links(&repo_url, branch, interval).await {
+        if let Err(e) =
+            check_repository_links(&repo_url, branch, interval, &email_client, subscriber_email)
+                .await
+        {
             return Err(e.to_string());
         }
         Ok(())
@@ -57,6 +63,8 @@ async fn check_handler(
         payload.subscriber.repository_url().url(),
         payload.subscriber.branch().cloned(),
         interval,
+        email_client.clone(),
+        payload.subscriber.email().clone(),
     )
     .await
     {
