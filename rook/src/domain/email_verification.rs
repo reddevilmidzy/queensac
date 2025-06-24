@@ -1,14 +1,14 @@
 use chrono::{DateTime, Duration, Utc};
 use rand::{Rng, rngs::ThreadRng};
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretBox};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, postgres::PgQueryResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EmailVerification {
     pub email: String,
     #[serde(skip_serializing)]
-    pub code: Secret<String>,
+    pub code: SecretBox<String>,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verified: bool,
@@ -75,12 +75,12 @@ impl EmailVerification {
     }
 }
 
-fn generate_verification_code() -> Secret<String> {
+fn generate_verification_code() -> SecretBox<String> {
     let mut rng = ThreadRng::default();
     let code: String = (0..6)
         .map(|_| rng.random_range(0..10).to_string())
         .collect();
-    Secret::new(code)
+    SecretBox::init_with(|| code)
 }
 
 #[derive(Debug)]
@@ -132,7 +132,7 @@ impl EmailVerificationStore {
 
         Ok(record.map(|r| EmailVerification {
             email: r.email,
-            code: Secret::new(r.verification_code.unwrap_or_default()),
+            code: SecretBox::init_with(|| r.verification_code.unwrap_or_default()),
             created_at: r.verification_code_created_at.unwrap_or_else(Utc::now),
             expires_at: r.verification_code_expires_at.unwrap_or_else(Utc::now),
             verified: r.is_verified,
