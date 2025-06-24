@@ -1,20 +1,20 @@
 use crate::domain::SubscriberEmail;
 use reqwest::Client;
-use secrecy::{ExposeSecret, SecretBox};
+use secrecy::{ExposeSecret, Secret};
 use std::time::Duration;
 
 pub struct EmailClient {
     http_client: Client,
     base_url: String,
     sender: SubscriberEmail,
-    authorization_token: SecretBox<String>,
+    authorization_token: Secret<String>,
 }
 
 impl EmailClient {
     pub fn new(
         base_url: String,
         sender: SubscriberEmail,
-        authorization_token: SecretBox<String>,
+        authorization_token: Secret<String>,
         timeout: Duration,
     ) -> Self {
         let http_client = Client::builder().timeout(timeout).build().unwrap();
@@ -130,15 +130,13 @@ mod tests {
     #[tokio::test]
     async fn send_email_sends_the_expected_request() {
         // Arrange
-        // TODO mock server 세팅과 email_client 생성 메서드 추출해서 테스트 코드 간결하게 만들기
         let mock_server = MockServer::start().await;
         let sender = SubscriberEmail::new("sender@example.com").unwrap();
         let recipient = SubscriberEmail::new("recipient@example.com").unwrap();
-        let auth_token = SecretBox::init_with(|| "test-token".to_string());
         let email_client = EmailClient::new(
             mock_server.uri(),
             sender,
-            auth_token,
+            Secret::new("test-token".to_string()),
             Duration::from_secs(10),
         );
 
@@ -180,7 +178,7 @@ mod tests {
         let email_client = EmailClient::new(
             mock_server.uri(),
             sender,
-            SecretBox::init_with(|| "test-token".to_string()),
+            Secret::new("test-token".to_string()),
             Duration::from_secs(10),
         );
 
@@ -214,7 +212,7 @@ mod tests {
         let email_client = EmailClient::new(
             mock_server.uri(),
             sender,
-            SecretBox::init_with(|| "test-token".to_string()),
+            Secret::new("test-token".to_string()),
             Duration::from_secs(10),
         );
 
@@ -246,7 +244,7 @@ mod tests {
         let email_client = EmailClient::new(
             mock_server.uri(),
             sender,
-            SecretBox::init_with(|| "test-token".to_string()),
+            Secret::new("test-token".to_string()),
             Duration::from_secs(10),
         );
 
@@ -285,7 +283,7 @@ mod tests {
         let email_client = EmailClient::new(
             mock_server.uri(),
             sender,
-            SecretBox::init_with(|| "test-token".to_string()),
+            Secret::new("test-token".to_string()),
             Duration::from_secs(10),
         );
 

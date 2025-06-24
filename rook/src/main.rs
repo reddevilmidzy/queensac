@@ -16,7 +16,6 @@ use axum::{
     routing::{delete, get, post},
 };
 use chrono::{FixedOffset, Utc};
-use secrecy::{ExposeSecret, SecretBox};
 use sqlx::PgPool;
 use std::{fmt, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
@@ -150,13 +149,7 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
     let email_client = EmailClient::new(
         configuration.email_client.base_url.clone(),
         sender,
-        SecretBox::init_with(|| {
-            configuration
-                .email_client
-                .authorization_token
-                .expose_secret()
-                .clone()
-        }),
+        configuration.email_client.authorization_token.clone(),
         configuration.email_client.timeout(),
     );
 

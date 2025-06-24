@@ -1,6 +1,6 @@
 use crate::domain::SubscriberEmail;
 use config::{Config, File, FileFormat};
-use secrecy::SecretBox;
+use secrecy::Secret;
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -20,7 +20,7 @@ pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
     #[serde(deserialize_with = "deserialize_secret")]
-    pub authorization_token: SecretBox<String>,
+    pub authorization_token: Secret<String>,
     pub timeout_seconds: u64,
 }
 
@@ -34,12 +34,12 @@ pub struct RepositoryCheckerSettings {
     pub interval_seconds: u64,
 }
 
-fn deserialize_secret<'de, D>(deserializer: D) -> Result<SecretBox<String>, D::Error>
+fn deserialize_secret<'de, D>(deserializer: D) -> Result<Secret<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    Ok(SecretBox::init_with(|| s))
+    Ok(Secret::new(s))
 }
 
 impl EmailClientSettings {
