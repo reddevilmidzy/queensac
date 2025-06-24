@@ -28,7 +28,7 @@ shuttle-runtime = { version = "0.55.0", default-features = false } # see https:/
 shuttle-shared-db = { version = "0.55.0", features = ["postgres", "sqlx"] }
 
 validator = "0.20"
-secrecy = { version = "0.8", features = ["serde"] }
+secrecy = { version = "0.10", features = ["serde"] }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
 dotenvy = "0.15"
 chrono = { version = "0.4.41", features = ["serde"] }
