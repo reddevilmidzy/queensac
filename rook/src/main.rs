@@ -1,6 +1,6 @@
 // todo 어떤게 깔끔한 import 구조인지, 조사하기. 베스트 쁘락띠쓰 찾기.
 use queensac::api::dto::*;
-use queensac::configuration::{Settings, get_configuration};
+use queensac::configuration::{Settings, get_configuration_with_secrets};
 use queensac::db::init_db;
 use queensac::domain::SubscriberEmail;
 use queensac::email_client::EmailClient;
@@ -16,6 +16,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use chrono::{FixedOffset, Utc};
+use shuttle_runtime::SecretStore;
 use sqlx::PgPool;
 use std::{fmt, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
@@ -123,7 +124,10 @@ async fn stream_handler(Query(params): Query<StreamRequest>) -> impl axum::respo
 }
 
 #[shuttle_runtime::main]
-async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::ShuttleAxum {
+async fn main(
+    #[shuttle_shared_db::Postgres] pool: PgPool,
+    #[shuttle_runtime::Secrets] secrets: SecretStore,
+) -> shuttle_axum::ShuttleAxum {
     FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_target(false)
@@ -138,10 +142,8 @@ async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::Shut
         .init();
 
     info!("Starting queensac service...");
-    dotenvy::dotenv().ok();
-
-    // 이메일 클라이언트 설정 로드
-    let configuration = get_configuration().expect("Failed to read configuration.");
+    let configuration =
+        get_configuration_with_secrets(Some(&secrets)).expect("Failed to read configuration.");
     let sender = configuration
         .email_client
         .sender()
