@@ -1,7 +1,8 @@
 use std::{env, fs, path::PathBuf, time};
 
-use git2::Repository;
-use tracing::error;
+//TODO 문서화 보완 지금 하자!!!
+use git2::{BranchType, Oid, Repository, Signature, build::CheckoutBuilder};
+use tracing::{error, info};
 
 use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
 
@@ -19,6 +20,11 @@ impl TempDirGuard {
         }
         fs::create_dir_all(&path)?;
         Ok(Self { path })
+    }
+
+    /// Returns a reference to the temporary directory path.
+    pub fn get_path(&self) -> &PathBuf {
+        &self.path
     }
 }
 
@@ -137,12 +143,173 @@ impl RepoManager {
     pub fn get_repo(&self) -> &Repository {
         &self.repo
     }
+
+    /// Creates a new branch from the current HEAD
+    pub async fn create_branch(&self, branch_name: &str) -> Result<(), git2::Error> {
+        info!("Creating branch: {}", branch_name);
+
+        let head = self.repo.head()?;
+        let head_commit = self.repo.find_commit(head.target().unwrap())?;
+
+        self.repo.branch(branch_name, &head_commit, false)?;
+
+        info!("Successfully created branch: {}", branch_name);
+        Ok(())
+    }
+
+    /// Checks out a branch
+    pub async fn checkout_branch(&self, branch_name: &str) -> Result<(), git2::Error> {
+        info!("Checking out branch: {}", branch_name);
+
+        // Find the branch
+        let (object, reference) = self.repo.revparse_ext(branch_name)?;
+
+        let mut checkout_builder = CheckoutBuilder::new();
+        checkout_builder.force();
+
+        self.repo
+            .checkout_tree(&object, Some(&mut checkout_builder))?;
+
+        match reference {
+            Some(reference) => {
+                if let Some(name) = reference.name() {
+                    self.repo.set_head(name)?;
+                } else {
+                    return Err(git2::Error::from_str("Could not get branch name"));
+                }
+            }
+            None => {
+                self.repo.set_head_detached(object.id())?;
+            }
+        }
+
+        info!("Successfully checked out branch: {}", branch_name);
+        Ok(())
+    }
+
+    /// Adds a file to the staging area
+    pub async fn add_file(&self, file_path: &str) -> Result<(), git2::Error> {
+        info!("Adding file to staging area: {}", file_path);
+
+        let mut index = self.repo.index()?;
+        index.add_path(std::path::Path::new(file_path))?;
+        index.write()?;
+
+        info!("Successfully added file: {}", file_path);
+        Ok(())
+    }
+
+    /// Adds all changes to the staging area
+    pub async fn add_all(&self) -> Result<(), git2::Error> {
+        info!("Adding all changes to staging area");
+
+        let mut index = self.repo.index()?;
+        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+        index.write()?;
+
+        info!("Successfully added all changes");
+        Ok(())
+    }
+
+    /// Creates a commit with the given message
+    pub async fn commit(
+        &self,
+        message: &str,
+        author_name: &str,
+        author_email: &str,
+    ) -> Result<Oid, git2::Error> {
+        info!("Creating commit with message: {}", message);
+
+        let signature = Signature::now(author_name, author_email)?;
+
+        let mut index = self.repo.index()?;
+        let tree_id = index.write_tree()?;
+        let tree = self.repo.find_tree(tree_id)?;
+
+        let head = self.repo.head()?;
+        let parent_commit = self.repo.find_commit(head.target().unwrap())?;
+
+        let commit_id = self.repo.commit(
+            Some(&head.name().unwrap()),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &[&parent_commit],
+        )?;
+
+        info!("Successfully created commit: {}", commit_id);
+        Ok(commit_id)
+    }
+
+    /// Pushes the current branch to the remote repository
+    pub async fn push(&self, remote_name: &str, branch_name: &str) -> Result<(), git2::Error> {
+        info!("Pushing branch {} to remote {}", branch_name, remote_name);
+
+        let mut remote = self.repo.find_remote(remote_name)?;
+
+        // Get the current branch reference
+        let branch = self.repo.find_branch(branch_name, BranchType::Local)?;
+        let reference = branch.get();
+
+        // Push the branch
+        remote.push(&[reference.name().unwrap()], None)?;
+
+        info!(
+            "Successfully pushed branch {} to remote {}",
+            branch_name, remote_name
+        );
+        Ok(())
+    }
+
+    /// Gets the current branch name
+    pub fn get_current_branch(&self) -> Result<String, git2::Error> {
+        let head = self.repo.head()?;
+        let branch_name = head
+            .shorthand()
+            .ok_or_else(|| git2::Error::from_str("Could not get branch name"))?;
+
+        Ok(branch_name.to_string())
+    }
+
+    /// Checks if there are any uncommitted changes
+    pub fn has_uncommitted_changes(&self) -> Result<bool, git2::Error> {
+        let statuses = self.repo.statuses(Some(
+            git2::StatusOptions::new()
+                .include_untracked(true)
+                .include_ignored(false)
+                .include_unmodified(false),
+        ))?;
+
+        // Check if there are any changes in working directory or staging area
+        for entry in statuses.iter() {
+            let status = entry.status();
+
+            // Working directory changes
+            if status.is_wt_new() || status.is_wt_modified() || status.is_wt_deleted() {
+                return Ok(true);
+            }
+
+            // Staging area changes
+            if status.is_index_new() || status.is_index_modified() || status.is_index_deleted() {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Gets the repository path
+    pub fn get_repo_path(&self) -> PathBuf {
+        self.repo.path().parent().unwrap().to_path_buf()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serial_test::serial;
+    use std::fs;
 
     static TEST_REPO_URL: &str = "https://github.com/reddevilmidzy/kingsac";
 
@@ -232,5 +399,82 @@ mod tests {
 
         let repo_manager = RepoManager::from_github_url(&url).unwrap();
         assert_eq!(repo_manager.find_current_location(&url).unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn test_create_and_checkout_branch() {
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+
+        // Create initial commit if needed
+        if repo_manager.has_uncommitted_changes().unwrap() {
+            repo_manager.add_all().await.unwrap();
+            repo_manager
+                .commit("Test commit", "Test User", "test@example.com")
+                .await
+                .unwrap();
+        }
+
+        // Create and checkout new branch
+        repo_manager
+            .create_branch("test-feature-branch")
+            .await
+            .unwrap();
+
+        repo_manager
+            .checkout_branch("test-feature-branch")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            repo_manager.get_current_branch().unwrap(),
+            "test-feature-branch"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_and_commit() {
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+
+        // Create a test file
+        let test_file = repo_manager.get_repo_path().join("test_file.txt");
+        fs::write(&test_file, "test content").unwrap();
+
+        // Add and commit
+        repo_manager.add_file("test_file.txt").await.unwrap();
+        let commit_id = repo_manager
+            .commit("Test commit", "Test User", "test@example.com")
+            .await
+            .unwrap();
+
+        assert!(!commit_id.is_zero());
+        assert!(!repo_manager.has_uncommitted_changes().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_has_uncommitted_changes() {
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+
+        assert!(!repo_manager.has_uncommitted_changes().unwrap());
+
+        let test_file = repo_manager.get_repo_path().join("test_changes.txt");
+        fs::write(&test_file, "test content").unwrap();
+
+        // Should have uncommitted changes
+        assert!(repo_manager.has_uncommitted_changes().unwrap());
+
+        // Add the file
+        repo_manager.add_file("test_changes.txt").await.unwrap();
+
+        // Should still have uncommitted changes (not committed yet)
+        assert!(repo_manager.has_uncommitted_changes().unwrap());
+
+        // Commit the changes
+        repo_manager
+            .commit("Test commit", "Test User", "test@example.com")
+            .await
+            .unwrap();
+
+        // Should not have uncommitted changes
+        assert!(!repo_manager.has_uncommitted_changes().unwrap());
     }
 }
