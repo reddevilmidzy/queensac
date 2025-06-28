@@ -2,6 +2,7 @@ use crate::domain::SubscriberEmail;
 use config::{Config, File, FileFormat};
 use secrecy::Secret;
 use serde::Deserialize;
+use shuttle_runtime::SecretStore;
 use std::time::Duration;
 
 const BASE_CONFIG: &str = include_str!("../configuration/base.yaml");
@@ -52,25 +53,58 @@ impl EmailClientSettings {
     }
 }
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    // Detect environment
-    let environment: Environment = std::env::var("APP_ENVIRONMENT")
-        .unwrap_or_else(|_| "local".into())
+pub fn get_configuration_with_secrets(
+    secrets: Option<&SecretStore>,
+) -> Result<Settings, config::ConfigError> {
+    dotenvy::dotenv().ok();
+    let secrets =
+        secrets.ok_or_else(|| config::ConfigError::NotFound("Secrets not provided".to_string()))?;
+
+    let environment: Environment = secrets
+        .get("APP_ENVIRONMENT")
+        .ok_or_else(|| {
+            config::ConfigError::NotFound("APP_ENVIRONMENT not found in secrets".to_string())
+        })?
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT");
 
-    let environment_config = match environment {
-        Environment::Local => LOCAL_CONFIG,
-        Environment::Production => PRODUCTION_CONFIG,
-    };
+    match environment {
+        Environment::Local => get_local_configuration(),
+        Environment::Production => get_production_configuration(secrets),
+    }
+}
 
+fn get_local_configuration() -> Result<Settings, config::ConfigError> {
     let settings = Config::builder()
         .add_source(File::from_str(BASE_CONFIG, FileFormat::Yaml))
-        .add_source(File::from_str(environment_config, FileFormat::Yaml))
+        .add_source(File::from_str(LOCAL_CONFIG, FileFormat::Yaml))
         .add_source(config::Environment::with_prefix("APP").separator("__"))
         .build()?;
 
     settings.try_deserialize::<Settings>()
+}
+
+fn get_production_configuration(secrets: &SecretStore) -> Result<Settings, config::ConfigError> {
+    let sender_email = secrets.get("POSTMARK_SENDER_EMAIL").ok_or_else(|| {
+        config::ConfigError::NotFound("POSTMARK_SENDER_EMAIL not found in secrets".to_string())
+    })?;
+    let auth_token = secrets.get("POSTMARK_AUTH_TOKEN").ok_or_else(|| {
+        config::ConfigError::NotFound("POSTMARK_AUTH_TOKEN not found in secrets".to_string())
+    })?;
+
+    let base_settings = Config::builder()
+        .set_override("email_client.sender_email", sender_email)?
+        .set_override("email_client.authorization_token", auth_token)?
+        .add_source(File::from_str(BASE_CONFIG, FileFormat::Yaml))
+        .build()?;
+
+    let production_settings = Config::builder()
+        .add_source(base_settings)
+        .add_source(File::from_str(PRODUCTION_CONFIG, FileFormat::Yaml))
+        .add_source(config::Environment::with_prefix("APP").separator("__"))
+        .build()?;
+
+    production_settings.try_deserialize::<Settings>()
 }
 
 #[derive(Debug)]
