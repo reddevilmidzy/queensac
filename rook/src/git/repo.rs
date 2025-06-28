@@ -230,7 +230,7 @@ impl RepoManager {
         let parent_commit = self.repo.find_commit(head.target().unwrap())?;
 
         let commit_id = self.repo.commit(
-            Some(&head.name().unwrap()),
+            Some(head.name().unwrap()),
             &signature,
             &signature,
             message,
