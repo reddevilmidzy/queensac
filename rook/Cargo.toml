@@ -23,7 +23,7 @@ futures = "0.3"
 tower-http = { version = "0.6", features = ["cors"] }
 
 # shuttle 의존성 지우기
-shuttle-axum = "0.55.0"
+shuttle-axum = "0.56.0"
 shuttle-runtime = { version = "0.55.0", default-features = false } # see https://docs.shuttle.dev/docs/logs#default-tracing-subscriber
 shuttle-shared-db = { version = "0.55.0", features = ["postgres", "sqlx"] }
 
