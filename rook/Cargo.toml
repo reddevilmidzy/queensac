@@ -34,7 +34,7 @@ dotenvy = "0.15"
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = { version = "0.9", features = ["std_rng"] }
 config = "0.15"
-thiserror = "1.0" # 2로 올려보기
+thiserror = "2.0"
 
 [dev-dependencies]
 serial_test = "3.0.0"
