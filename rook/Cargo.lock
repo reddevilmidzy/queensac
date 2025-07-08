@@ -1962,6 +1962,7 @@ dependencies = [
  "shuttle-runtime",
  "shuttle-shared-db",
  "sqlx",
+ "thiserror 2.0.12",
  "tokio",
  "tokio-util",
  "tower-http",
