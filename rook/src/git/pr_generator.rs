@@ -1,6 +1,7 @@
 use crate::RepoManager;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::path::PathBuf;
 use thiserror::Error;
 use tracing::{error, info};
@@ -19,22 +20,16 @@ pub enum PrError {
     Json(#[from] serde_json::Error),
     #[error("Configuration error: {0}")]
     Config(String),
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct FileChange {
     pub file_path: String,
     pub old_content: String,
     pub new_content: String,
-    pub line_number: u32,
-}
-
-#[derive(Debug)]
-pub struct LinkFix {
-    pub file_path: String,
-    pub line_number: u32,
-    pub old_url: String,
-    pub new_url: String,
+    pub line_number: i32,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,8 +77,53 @@ impl PullRequestGenerator {
         }
     }
 
+    pub async fn find_repo_id(
+        &self,
+        pool: &PgPool,
+        repo_url: &str,
+        branch: Option<&str>,
+    ) -> Result<i32, PrError> {
+        let repo_id = sqlx::query!(
+            "SELECT id FROM repo WHERE repo_url = $1 AND branch = $2",
+            repo_url,
+            branch
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(repo_id.id)
+    }
+
+    pub async fn find_file_changes(
+        &self,
+        pool: &PgPool,
+        repo_id: i32,
+    ) -> Result<Vec<FileChange>, PrError> {
+        let result = sqlx::query_as!(
+            FileChange,
+            "SELECT file_path, old_content, new_content, line_number FROM check_result WHERE repo_id = $1",
+            repo_id
+        ).fetch_all(pool)
+        .await?;
+
+        Ok(result)
+    }
+
+    pub async fn find_check_result(
+        &self,
+        pool: &PgPool,
+        repo_url: &str,
+        branch: Option<&str>,
+    ) -> Result<String, PrError> {
+        let repo_id = self.find_repo_id(pool, repo_url, branch).await?;
+        let file_changes = self.find_file_changes(pool, repo_id).await?;
+
+        let pr_url = self.create_fix_pr(file_changes).await?;
+        Ok(pr_url)
+    }
+
     /// Creates a pull request with link fixes
-    pub async fn create_fix_pr(&self, fixes: Vec<LinkFix>) -> Result<String, PrError> {
+    pub async fn create_fix_pr(&self, fixes: Vec<FileChange>) -> Result<String, PrError> {
         self.create_feature_branch().await?;
 
         let changes = self.apply_fixes(fixes).await?;
@@ -114,7 +154,7 @@ impl PullRequestGenerator {
     }
 
     /// Applies link fixes to files
-    async fn apply_fixes(&self, fixes: Vec<LinkFix>) -> Result<Vec<FileChange>, PrError> {
+    async fn apply_fixes(&self, fixes: Vec<FileChange>) -> Result<Vec<FileChange>, PrError> {
         let mut changes = Vec::new();
 
         for fix in fixes {
@@ -133,8 +173,8 @@ impl PullRequestGenerator {
             let new_content = self.replace_line_content(
                 &current_content,
                 fix.line_number as usize,
-                &fix.old_url,
-                &fix.new_url,
+                &fix.old_content,
+                &fix.new_content,
             )?;
 
             tokio::fs::write(&full_path, &new_content)
@@ -531,11 +571,11 @@ mod tests {
             .await;
 
         // Create test fixes
-        let fixes = vec![LinkFix {
+        let fixes = vec![FileChange {
             file_path: "test.md".to_string(),
             line_number: 3,
-            old_url: "https://broken-url.com".to_string(),
-            new_url: "https://working-url.com".to_string(),
+            old_content: "https://broken-url.com".to_string(),
+            new_content: "https://working-url.com".to_string(),
         }];
 
         let result = generator.create_fix_pr(fixes).await;
