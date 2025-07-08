@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use tracing::{error, info};
 
+/// Represents errors that can occur during pull request generation.
 #[derive(Debug, Error)]
 pub enum PrError {
     #[error("Git operation failed: {0}")]
@@ -25,6 +26,7 @@ pub enum PrError {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+/// Represents a file change to be included in a pull request.
 pub struct FileChange {
     pub file_path: String,
     pub old_content: String,
@@ -33,6 +35,7 @@ pub struct FileChange {
 }
 
 #[derive(Debug, Serialize)]
+/// Structure for creating a GitHub pull request via API.
 struct GitHubPullRequest {
     title: String,
     body: String,
@@ -41,11 +44,13 @@ struct GitHubPullRequest {
 }
 
 #[derive(Debug, Deserialize)]
+/// Structure for parsing the response from GitHub pull request API.
 struct GitHubPullRequestResponse {
     html_url: String,
     number: u32,
 }
 
+/// Generates pull requests for link fixes in a repository.
 pub struct PullRequestGenerator {
     repo_manager: RepoManager,
     github_token: String,
@@ -57,6 +62,16 @@ pub struct PullRequestGenerator {
 }
 
 impl PullRequestGenerator {
+    /// Creates a new PullRequestGenerator.
+    ///
+    /// # Arguments
+    /// * `repo_manager` - The repository manager instance
+    /// * `github_token` - GitHub API token
+    /// * `base_branch` - The base branch for the pull request
+    /// * `feature_branch` - The feature branch to create
+    /// * `author_name` - The commit author name
+    /// * `author_email` - The commit author email
+    /// * `http_client` - The HTTP client for API requests
     pub fn new(
         repo_manager: RepoManager,
         github_token: String,
@@ -77,6 +92,12 @@ impl PullRequestGenerator {
         }
     }
 
+    /// Finds the repository ID in the database for a given URL and branch.
+    ///
+    /// # Arguments
+    /// * `pool` - The database connection pool
+    /// * `repo_url` - The repository URL
+    /// * `branch` - The branch name (optional)
     pub async fn find_repo_id(
         &self,
         pool: &PgPool,
@@ -94,6 +115,11 @@ impl PullRequestGenerator {
         Ok(repo_id.id)
     }
 
+    /// Finds file changes for a given repository ID.
+    ///
+    /// # Arguments
+    /// * `pool` - The database connection pool
+    /// * `repo_id` - The repository ID
     pub async fn find_file_changes(
         &self,
         pool: &PgPool,
@@ -109,6 +135,12 @@ impl PullRequestGenerator {
         Ok(result)
     }
 
+    /// Finds the check result and creates a fix pull request.
+    ///
+    /// # Arguments
+    /// * `pool` - The database connection pool
+    /// * `repo_url` - The repository URL
+    /// * `branch` - The branch name (optional)
     pub async fn find_check_result(
         &self,
         pool: &PgPool,
@@ -122,7 +154,10 @@ impl PullRequestGenerator {
         Ok(pr_url)
     }
 
-    /// Creates a pull request with link fixes
+    /// Creates a pull request with link fixes.
+    ///
+    /// # Arguments
+    /// * `fixes` - The list of file changes to apply
     pub async fn create_fix_pr(&self, fixes: Vec<FileChange>) -> Result<String, PrError> {
         self.create_feature_branch().await?;
 
@@ -137,7 +172,7 @@ impl PullRequestGenerator {
         Ok(pr_url)
     }
 
-    /// Creates a new feature branch from the current branch
+    /// Creates a new feature branch from the current branch.
     async fn create_feature_branch(&self) -> Result<(), PrError> {
         self.repo_manager
             .create_branch(&self.feature_branch)
@@ -153,7 +188,10 @@ impl PullRequestGenerator {
         Ok(())
     }
 
-    /// Applies link fixes to files
+    /// Applies link fixes to files in the repository.
+    ///
+    /// # Arguments
+    /// * `fixes` - The list of file changes to apply
     async fn apply_fixes(&self, fixes: Vec<FileChange>) -> Result<Vec<FileChange>, PrError> {
         let mut changes = Vec::new();
 
@@ -200,7 +238,13 @@ impl PullRequestGenerator {
         Ok(changes)
     }
 
-    /// Replaces content in a specific line
+    /// Replaces content in a specific line of a file.
+    ///
+    /// # Arguments
+    /// * `content` - The file content
+    /// * `line_number` - The line number to replace (1-based)
+    /// * `old_url` - The old URL to replace
+    /// * `new_url` - The new URL to insert
     fn replace_line_content(
         &self,
         content: &str,
@@ -234,7 +278,10 @@ impl PullRequestGenerator {
         Ok(new_lines.join("\n"))
     }
 
-    /// Commits all changes
+    /// Commits all file changes to the repository.
+    ///
+    /// # Arguments
+    /// * `changes` - The list of file changes to commit
     async fn commit_changes(&self, changes: &[FileChange]) -> Result<(), PrError> {
         info!("Committing {} file changes", changes.len());
 
@@ -252,7 +299,10 @@ impl PullRequestGenerator {
         Ok(())
     }
 
-    /// Creates a descriptive commit message
+    /// Creates a descriptive commit message for the changes.
+    ///
+    /// # Arguments
+    /// * `changes` - The list of file changes
     fn create_commit_message(&self, changes: &[FileChange]) -> String {
         let mut message = String::from("fix: Update broken links\n\n");
 
@@ -269,7 +319,7 @@ impl PullRequestGenerator {
         message
     }
 
-    /// Pushes the feature branch to the remote repository
+    /// Pushes the feature branch to the remote repository.
     async fn push_to_remote(&self) -> Result<(), PrError> {
         info!("Pushing branch {} to remote", self.feature_branch);
 
@@ -281,7 +331,7 @@ impl PullRequestGenerator {
         Ok(())
     }
 
-    /// Creates a pull request via GitHub API
+    /// Creates a pull request via the GitHub API.
     pub async fn create_pull_request_via_api(&self) -> Result<String, PrError> {
         info!("Creating pull request via GitHub API");
 
@@ -321,7 +371,7 @@ impl PullRequestGenerator {
         Ok(pr_response.html_url)
     }
 
-    /// Gets the GitHub API URL for the repository
+    /// Gets the GitHub API URL for the repository.
     fn get_repo_url(&self) -> Result<String, PrError> {
         let repo_path = self.repo_manager.get_repo_path();
 
@@ -336,7 +386,7 @@ impl PullRequestGenerator {
         Ok(format!("https://api.github.com/repos/{}/{}", owner, repo))
     }
 
-    /// Creates a description for the pull request
+    /// Creates a description for the pull request.
     fn create_pr_description(&self) -> String {
         "## 🔗 Link Fixes
 

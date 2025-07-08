@@ -1,10 +1,7 @@
-use std::{env, fs, path::PathBuf, time};
-
-//TODO 문서화 보완 지금 하자!!!
-use git2::{BranchType, Oid, Repository, Signature, build::CheckoutBuilder};
-use tracing::{error, info};
-
 use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
+use git2::{BranchType, Oid, Repository, Signature, build::CheckoutBuilder};
+use std::{env, fs, path::PathBuf, time};
+use tracing::{error, info};
 
 /// A guard that automatically removes a temporary directory when dropped.
 pub struct TempDirGuard {
