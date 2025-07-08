@@ -7,4 +7,4 @@ Alternatively, you can report the issue by emailing us at [security@redddy.com](
 
 We appreciate responsible disclosure and will do our best to respond promptly and address the issue.
 
-Thank you for helping us keep Queensac secure!
+Thank you for helping us keep queensac secure!
