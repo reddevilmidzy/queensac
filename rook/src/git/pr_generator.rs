@@ -283,6 +283,10 @@ impl PullRequestGenerator {
     /// # Arguments
     /// * `changes` - The list of file changes to commit
     async fn commit_changes(&self, changes: &[FileChange]) -> Result<(), PrError> {
+        if changes.is_empty() {
+            info!("No file changes to commit. Skipping commit creation.");
+            return Ok(());
+        }
         info!("Committing {} file changes", changes.len());
 
         for change in changes {
