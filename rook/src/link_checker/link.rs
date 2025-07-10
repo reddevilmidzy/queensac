@@ -46,10 +46,10 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                 if status.is_success() {
                     return LinkCheckResult::Valid;
                 } else if status.is_redirection() {
-                    if let Some(redirect_url) = res.headers().get("location") {
-                        if let Ok(redirect_str) = redirect_url.to_str() {
-                            return LinkCheckResult::Redirect(redirect_str.to_string());
-                        }
+                    if let Some(redirect_url) = res.headers().get("location")
+                        && let Ok(redirect_str) = redirect_url.to_str()
+                    {
+                        return LinkCheckResult::Redirect(redirect_str.to_string());
                     }
                     return LinkCheckResult::Valid;
                 } else if status.as_u16() == 404 && url.contains("github.com") {

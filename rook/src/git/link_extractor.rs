@@ -38,29 +38,27 @@ pub fn extract_links_from_repo_url(
     let repo_manager = RepoManager::clone_repo(repo_url, branch.as_deref())?;
 
     let mut all_links = HashSet::new();
+    if let Ok(head) = repo_manager.get_repo().head()
+        && let Ok(tree) = head.peel_to_tree()
+    {
+        tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+            if let Some(name) = entry.name() {
+                let file_path = if dir.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{dir}/{name}")
+                };
 
-    if let Ok(head) = repo_manager.get_repo().head() {
-        if let Ok(tree) = head.peel_to_tree() {
-            tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
-                if let Some(name) = entry.name() {
-                    let file_path = if dir.is_empty() {
-                        name.to_string()
-                    } else {
-                        format!("{dir}/{name}")
-                    };
-
-                    if let Ok(blob) = entry.to_object(repo_manager.get_repo()) {
-                        if let Ok(blob) = blob.peel_to_blob() {
-                            if let Ok(content) = String::from_utf8(blob.content().to_vec()) {
-                                let links = find_link_in_content(&content, file_path.clone());
-                                all_links.extend(links);
-                            }
-                        }
-                    }
+                if let Ok(blob) = entry.to_object(repo_manager.get_repo())
+                    && let Ok(blob) = blob.peel_to_blob()
+                    && let Ok(content) = String::from_utf8(blob.content().to_vec())
+                {
+                    let links = find_link_in_content(&content, file_path.clone());
+                    all_links.extend(links);
                 }
-                git2::TreeWalkResult::Ok
-            })?;
-        }
+            }
+            git2::TreeWalkResult::Ok
+        })?;
     }
 
     Ok(all_links)

@@ -30,12 +30,11 @@ pub fn find_last_commit_id<'a>(
             let prev_tree = prev_commit.tree()?;
             let diff = repo.diff_tree_to_tree(Some(&prev_tree), Some(&tree), None)?;
             for delta in diff.deltas() {
-                if let Some(file_path) = delta.new_file().path() {
-                    if let Some(file_path_str) = file_path.to_str() {
-                        if file_path_str == target_file {
-                            return Ok(commit);
-                        }
-                    }
+                if let Some(file_path) = delta.new_file().path()
+                    && let Some(file_path_str) = file_path.to_str()
+                    && file_path_str == target_file
+                {
+                    return Ok(commit);
                 }
             }
         }
