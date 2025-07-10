@@ -52,7 +52,7 @@ impl EmailClient {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| format!("Failed to send email: {}", e))?;
+            .map_err(|e| format!("Failed to send email: {e}"))?;
 
         match response.error_for_status() {
             Ok(_) => Ok(()),
@@ -63,8 +63,7 @@ impl EmailClient {
                     .unwrap_or_else(|| "Unknown status".to_string());
                 let error_message = e.to_string();
                 Err(format!(
-                    "Failed to send email. Status: {}. Error: {}",
-                    status, error_message
+                    "Failed to send email. Status: {status}. Error: {error_message}"
                 ))
             }
         }
@@ -97,8 +96,7 @@ impl EmailClient {
                 Err(e) => {
                     if attempt >= max_retries {
                         return Err(format!(
-                            "Failed to send email after {} attempts. Last error: {}",
-                            attempt, e
+                            "Failed to send email after {attempt} attempts. Last error: {e}"
                         ));
                     } else {
                         tokio::time::sleep(retry_delay).await;

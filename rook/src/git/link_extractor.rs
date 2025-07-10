@@ -46,7 +46,7 @@ pub fn extract_links_from_repo_url(
                     let file_path = if dir.is_empty() {
                         name.to_string()
                     } else {
-                        format!("{}/{}", dir, name)
+                        format!("{dir}/{name}")
                     };
 
                     if let Ok(blob) = entry.to_object(repo_manager.get_repo()) {

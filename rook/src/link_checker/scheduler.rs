@@ -101,9 +101,9 @@ impl LinkCheckSummary {
 
     fn generate_email_content(&self, repo_url: &str, branch: Option<&str>) -> (String, String) {
         let branch_info = branch
-            .map(|b| format!(" (branch: {})", b))
+            .map(|b| format!(" (branch: {b})"))
             .unwrap_or_default();
-        let subject = format!("Link Check Report - {}{}", repo_url, branch_info);
+        let subject = format!("Link Check Report - {repo_url}{branch_info}");
 
         let mut html_content = format!(
             r#"<h2>Link Check Report</h2>
@@ -177,8 +177,7 @@ pub async fn check_repository_links(
         let mut map = REPO_TASKS.lock().unwrap();
         if map.contains_key(&repo_key) {
             return Err(format!(
-                "Repository {} (branch: {:?}) is already being monitored",
-                repo_url, branch
+                "Repository {repo_url} (branch: {branch:?}) is already being monitored"
             ));
         }
         let token = CancellationToken::new();
@@ -186,19 +185,14 @@ pub async fn check_repository_links(
         token
     };
 
-    info!(
-        "Starting repository link checker for {} (branch: {:?})",
-        repo_url, branch
-    );
+    info!("Starting repository link checker for {repo_url} (branch: {branch:?})");
 
     let mut interval = tokio::time::interval(interval_duration);
     loop {
         tokio::select! {
             _ = interval.tick() => {
                 info!(
-                    "Checking links for repository: {} (branch: {:?})",
-                    repo_url,
-                    branch
+                    "Checking links for repository: {repo_url} (branch: {branch:?})"
                 );
 
                 match git::extract_links_from_repo_url(repo_url, branch.clone()) {
@@ -271,15 +265,11 @@ pub async fn cancel_repository_checker(
     };
     if let Some(token) = token {
         token.cancel();
-        info!(
-            "Cancellation requested for repository: {} (branch: {:?})",
-            repo_url, branch
-        );
+        info!("Cancellation requested for repository: {repo_url} (branch: {branch:?})");
         Ok(())
     } else {
         Err(format!(
-            "No active checker found for repository: {} (branch: {:?})",
-            repo_url, branch
+            "No active checker found for repository: {repo_url} (branch: {branch:?})"
         ))
     }
 }

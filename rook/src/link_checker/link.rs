@@ -13,21 +13,21 @@ fn handle_github_404(url: &str) -> LinkCheckResult {
     let parsed = match GitHubUrl::parse(url) {
         Some(parsed) => parsed,
         None => {
-            return LinkCheckResult::Invalid(format!("Invalid GitHub URL format: {}", url));
+            return LinkCheckResult::Invalid(format!("Invalid GitHub URL format: {url}"));
         }
     };
 
     let repo_manager = match RepoManager::from_github_url(&parsed) {
         Ok(repo_manager) => repo_manager,
         Err(e) => {
-            return LinkCheckResult::Invalid(format!("Error cloning repository: {}", e));
+            return LinkCheckResult::Invalid(format!("Error cloning repository: {e}"));
         }
     };
 
     match repo_manager.find_current_location(&parsed) {
         Ok(Some(new_path)) => LinkCheckResult::GitHubFileMoved(new_path.to_string()),
-        Ok(None) => LinkCheckResult::Invalid(format!("File not found in repository: {}", url)),
-        Err(e) => LinkCheckResult::Invalid(format!("Error finding file location: {}", e)),
+        Ok(None) => LinkCheckResult::Invalid(format!("File not found in repository: {url}")),
+        Err(e) => LinkCheckResult::Invalid(format!("Error finding file location: {e}")),
     }
 }
 
@@ -55,12 +55,12 @@ pub async fn check_link(url: &str) -> LinkCheckResult {
                 } else if status.as_u16() == 404 && url.contains("github.com") {
                     return handle_github_404(url);
                 } else {
-                    return LinkCheckResult::Invalid(format!("HTTP status code: {}", status));
+                    return LinkCheckResult::Invalid(format!("HTTP status code: {status}"));
                 }
             }
             Err(e) => {
                 if attempts == 1 {
-                    return LinkCheckResult::Invalid(format!("Request error: {}", e));
+                    return LinkCheckResult::Invalid(format!("Request error: {e}"));
                 }
             }
         }

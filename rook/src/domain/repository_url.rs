@@ -46,7 +46,7 @@ impl RepositoryURL {
 
     fn validate(&self) -> Result<(), String> {
         if !self.url.starts_with(GITHUB_BASE_URL) {
-            return Err(format!("URL must start with {}", GITHUB_BASE_URL));
+            return Err(format!("URL must start with {GITHUB_BASE_URL}"));
         }
         let parts: Vec<&str> = self
             .url
@@ -54,7 +54,7 @@ impl RepositoryURL {
             .split('/')
             .collect();
         if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
-            return Err(format!("URL must be in format {}", GITHUB_URL_FORMAT));
+            return Err(format!("URL must be in format {GITHUB_URL_FORMAT}"));
         }
         Ok(())
     }
