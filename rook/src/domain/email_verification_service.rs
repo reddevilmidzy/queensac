@@ -22,7 +22,7 @@ impl EmailVerificationService {
             .store
             .create_verification(email.clone())
             .await
-            .map_err(|e| format!("Failed to create verification: {}", e))?;
+            .map_err(|e| format!("Failed to create verification: {e}"))?;
 
         let subscriber_email =
             SubscriberEmail::new(email.clone()).map_err(|_| "Invalid email format".to_string())?;
@@ -54,21 +54,21 @@ impl EmailVerificationService {
         self.store
             .verify_code(email, code)
             .await
-            .map_err(|e| format!("Failed to verify code: {}", e))
+            .map_err(|e| format!("Failed to verify code: {e}"))
     }
 
     pub async fn is_verified(&self, email: &str) -> Result<bool, String> {
         self.store
             .is_verified(email)
             .await
-            .map_err(|e| format!("Failed to check verification status: {}", e))
+            .map_err(|e| format!("Failed to check verification status: {e}"))
     }
 
     pub async fn cleanup_expired(&self) -> Result<(), String> {
         self.store
             .cleanup_expired()
             .await
-            .map_err(|e| format!("Failed to cleanup expired verifications: {}", e))?;
+            .map_err(|e| format!("Failed to cleanup expired verifications: {e}"))?;
         Ok(())
     }
 }

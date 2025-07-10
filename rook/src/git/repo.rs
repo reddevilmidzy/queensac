@@ -73,7 +73,7 @@ impl RepoManager {
         ));
 
         let _temp_dir_guard = TempDirGuard::new(temp_dir.clone()).map_err(|e| {
-            git2::Error::from_str(&format!("Failed to create temporary directory: {}", e))
+            git2::Error::from_str(&format!("Failed to create temporary directory: {e}"))
         })?;
 
         let mut builder = git2::build::RepoBuilder::new();

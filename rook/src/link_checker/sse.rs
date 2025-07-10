@@ -125,10 +125,10 @@ pub async fn stream_link_checks(
                                     LinkCheckResult::Valid => None,
                                     LinkCheckResult::Invalid(msg) => Some(msg),
                                     LinkCheckResult::Redirect(url) => {
-                                        Some(format!("Redirected to: {}", url))
+                                        Some(format!("Redirected to: {url}"))
                                     }
                                     LinkCheckResult::GitHubFileMoved(msg) => {
-                                        Some(format!("Moved to: {}", msg))
+                                        Some(format!("Moved to: {msg}"))
                                     }
                                 },
                             };
@@ -136,9 +136,9 @@ pub async fn stream_link_checks(
                             match Event::default().json_data(event) {
                                 Ok(event) => Ok(event),
                                 Err(e) => {
-                                    error!("Failed to serialize event: {}", e);
+                                    error!("Failed to serialize event: {e}");
                                     Ok(Event::default()
-                                        .data(format!("Error serializing event: {}", e)))
+                                        .data(format!("Error serializing event: {e}")))
                                 }
                             }
                         }
@@ -152,8 +152,8 @@ pub async fn stream_link_checks(
                     match Event::default().json_data(summary) {
                         Ok(event) => Ok(event),
                         Err(e) => {
-                            error!("Failed to serialize summary event: {}", e);
-                            Ok(Event::default().data(format!("Error serializing summary: {}", e)))
+                            error!("Failed to serialize summary event: {e}");
+                            Ok(Event::default().data(format!("Error serializing summary: {e}")))
                         }
                     }
                 }));

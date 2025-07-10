@@ -177,7 +177,7 @@ fn app(pool: PgPool, email_client: Arc<EmailClient>, configuration: Arc<Settings
         .iter()
         .map(|origin| {
             HeaderValue::from_str(origin)
-                .map_err(|e| format!("Invalid CORS origin '{}': {}", origin, e))
+                .map_err(|e| format!("Invalid CORS origin '{origin}': {e}"))
         })
         .collect::<Result<Vec<_>, _>>()
         .expect("Failed to parse CORS origins");

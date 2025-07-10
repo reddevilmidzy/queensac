@@ -255,10 +255,7 @@ impl PullRequestGenerator {
         let lines: Vec<&str> = content.lines().collect();
 
         if line_number == 0 || line_number > lines.len() {
-            return Err(PrError::File(format!(
-                "Invalid line number: {}",
-                line_number
-            )));
+            return Err(PrError::File(format!("Invalid line number: {line_number}")));
         }
 
         let line_index = line_number - 1;
@@ -266,8 +263,7 @@ impl PullRequestGenerator {
 
         if !old_line.contains(old_url) {
             return Err(PrError::File(format!(
-                "Old URL '{}' not found in line {}: {}",
-                old_url, line_number, old_line
+                "Old URL '{old_url}' not found in line {line_number}: {old_line}"
             )));
         }
 
@@ -340,7 +336,7 @@ impl PullRequestGenerator {
         info!("Creating pull request via GitHub API");
 
         let repo_url = self.get_repo_url()?;
-        let api_url = format!("{}/pulls", repo_url);
+        let api_url = format!("{repo_url}/pulls");
 
         let pr_data = GitHubPullRequest {
             title: "fix: Update broken links".to_string(),
@@ -364,8 +360,7 @@ impl PullRequestGenerator {
         if !status.is_success() {
             let error_text = response.text().await?;
             return Err(PrError::GitHub(format!(
-                "Failed to create PR: {} - {}",
-                status, error_text
+                "Failed to create PR: {status} - {error_text}"
             )));
         }
 
@@ -387,7 +382,7 @@ impl PullRequestGenerator {
         let owner = path_components[path_components.len() - 2];
         let repo = path_components[path_components.len() - 1];
 
-        Ok(format!("https://api.github.com/repos/{}/{}", owner, repo))
+        Ok(format!("https://api.github.com/repos/{owner}/{repo}"))
     }
 
     /// Creates a description for the pull request.

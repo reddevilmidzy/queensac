@@ -27,7 +27,7 @@ impl SubscriberEmail {
         if email.validate_email() {
             Ok(Self(email))
         } else {
-            Err(format!("{} is not a valid subscriber email.", email))
+            Err(format!("{email} is not a valid subscriber email."))
         }
     }
 
