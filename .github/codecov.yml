@@ -1,0 +1,40 @@
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+
+coverage:
+  precision: 2
+  round: down
+  range: 50..80
+
+  status:
+    project:
+      default:
+        target: 50%          # 현재 수준으로 설정
+        threshold: 5%        # 5% 이하로 떨어지면 실패 (너무 엄격하지 않게)
+        base: auto
+        if_ci_failed: error  # CI 실패 시 커버리지 체크도 실패
+    patch:
+      default:
+        target: 60%         # 새 코드는 조금 더 높은 기준
+        threshold: 10%      # 새 코드에 대해서는 관대하게
+        base: auto
+        if_not_found: success  # 새 코드가 없으면 성공
+
+comment:
+  layout: "header, diff, flags, files, footer"
+  behavior: default
+  require_changes: true    # 변경사항이 있을 때만 코멘트
+  require_base: false
+  require_head: true
+  hide_project_coverage: false  # 프로젝트 전체 커버리지 표시
+
+# 점진적 개선을 위한 설정
+github_checks:
+  annotations: true        # GitHub에서 커버리지 누락 부분 표시
+
+# 파일별 커버리지 임계값 (점진적 개선용)
+flag_management:
+  default_rules:
+    carryforward: true     # 이전 커버리지 데이터 유지
