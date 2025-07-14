@@ -9,14 +9,20 @@ const BASE_CONFIG: &str = include_str!("../configuration/base.yaml");
 const LOCAL_CONFIG: &str = include_str!("../configuration/local.yaml");
 const PRODUCTION_CONFIG: &str = include_str!("../configuration/production.yaml");
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub email_client: EmailClientSettings,
     pub cors: CorsSettings,
     pub repository_checker: RepositoryCheckerSettings,
+    pub application: ApplicationSettings,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
+pub struct ApplicationSettings {
+    pub port: u16,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
@@ -25,12 +31,12 @@ pub struct EmailClientSettings {
     pub timeout_seconds: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CorsSettings {
     pub allowed_origins: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RepositoryCheckerSettings {
     pub interval_seconds: u64,
 }
