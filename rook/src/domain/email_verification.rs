@@ -176,3 +176,15 @@ impl EmailVerificationStore {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_verification_code() {
+        let code = generate_verification_code();
+        assert_eq!(code.expose_secret().len(), 6);
+        assert!(code.expose_secret().chars().all(|c| c.is_digit(10)));
+    }
+}
