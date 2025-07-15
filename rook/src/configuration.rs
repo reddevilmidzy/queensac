@@ -113,7 +113,7 @@ fn get_production_configuration(secrets: &SecretStore) -> Result<Settings, confi
     production_settings.try_deserialize::<Settings>()
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Environment {
     Local,
     Production,
@@ -139,5 +139,53 @@ impl TryFrom<String> for Environment {
                 "{other} is not a supported environment. Use either `local` or `production`."
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_environment_as_str() {
+        assert_eq!(Environment::Local.as_str(), "local");
+        assert_eq!(Environment::Production.as_str(), "production");
+    }
+
+    #[test]
+    fn test_try_from_string() {
+        assert_eq!(
+            Environment::try_from("local".to_string()),
+            Ok(Environment::Local)
+        );
+        assert_eq!(
+            Environment::try_from("production".to_string()),
+            Ok(Environment::Production)
+        );
+        assert_eq!(
+            Environment::try_from("invalid".to_string()),
+            Err(
+                "invalid is not a supported environment. Use either `local` or `production`."
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn test_get_local_configuration() -> Result<(), config::ConfigError> {
+        let settings = get_local_configuration()?;
+        assert_eq!(settings.email_client.sender_email, "noreply@queens.ac");
+        assert_eq!(settings.email_client.timeout_seconds, 10);
+        assert_eq!(
+            settings.cors.allowed_origins,
+            vec![
+                "http://localhost:3000",
+                "https://queens.ac",
+                "https://www.queens.ac"
+            ]
+        );
+        assert_eq!(settings.repository_checker.interval_seconds, 120);
+        assert_eq!(settings.application.port, 8080);
+        Ok(())
     }
 }
