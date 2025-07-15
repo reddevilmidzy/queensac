@@ -187,4 +187,12 @@ mod tests {
         assert_eq!(code.expose_secret().len(), 6);
         assert!(code.expose_secret().chars().all(|c| c.is_digit(10)));
     }
+
+    #[test]
+    fn test_create_email_verification() {
+        let email = "test@example.com";
+        let verification = EmailVerification::new(email.to_string());
+        assert_eq!(verification.email, email);
+        assert!(verification.expires_at > verification.created_at);
+    }
 }
