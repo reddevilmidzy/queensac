@@ -1959,6 +1959,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "shuttle-axum",
+ "shuttle-common",
  "shuttle-runtime",
  "shuttle-shared-db",
  "sqlx",
