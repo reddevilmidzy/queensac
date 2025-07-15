@@ -37,8 +37,59 @@ jobs:
           command: check
           arguments: --all-features
 
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: rook/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
+
+      - name: Check formatting
+        working-directory: rook
+        run: cargo fmt -- --check
+
+      - name: Lint with Clippy
+        working-directory: rook
+        run: cargo clippy -- -D warnings
+
   build:
-    needs: security
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: rook/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
+
+      - name: Build
+        working-directory: rook
+        run: cargo build --verbose
+
+  test:
+    needs: build
     runs-on: ubuntu-latest
 
     services:
@@ -70,23 +121,44 @@ jobs:
           path: rook/target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
 
-      - name: Check formatting
-        working-directory: rook
-        run: cargo fmt -- --check
-
-      - name: Lint with Clippy
-        working-directory: rook
-        run: cargo clippy -- -D warnings
-
-      - name: Build
-        working-directory: rook
-        run: cargo build --verbose
-
       - name: Run tests
         working-directory: rook
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: cargo test --verbose
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: rook/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('rook/Cargo.lock') }}
       
       - name: Cache cargo-tarpaulin binary
         id: cache-tarpaulin
@@ -108,7 +180,7 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
-          file: ./rook/coverage/cobertura.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: rook/coverage/cobertura.xml
           verbose: true
           fail_ci_if_error: false
