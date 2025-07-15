@@ -145,6 +145,8 @@ impl TryFrom<String> for Environment {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shuttle_common::secrets::Secret;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_environment_as_str() {
@@ -186,6 +188,24 @@ mod tests {
         );
         assert_eq!(settings.repository_checker.interval_seconds, 120);
         assert_eq!(settings.application.port, 8080);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_production_configuration() -> Result<(), config::ConfigError> {
+        let secrets = SecretStore::new(BTreeMap::from([
+            (
+                "POSTMARK_SENDER_EMAIL".to_string(),
+                Secret::new("noreply@queens.ac".to_string()),
+            ),
+            (
+                "POSTMARK_AUTH_TOKEN".to_string(),
+                Secret::new("veryverysecret".to_string()),
+            ),
+        ]));
+        let settings = get_production_configuration(&secrets)?;
+        assert_eq!(settings.email_client.sender_email, "noreply@queens.ac");
+        assert_eq!(settings.email_client.timeout_seconds, 10);
         Ok(())
     }
 }
