@@ -34,3 +34,20 @@ impl NewSubscriber {
         self.branch.as_ref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_subscriber_creation_and_getters() {
+        let email = SubscriberEmail::new("test@example.com").unwrap();
+        let repo_url = RepositoryURL::new("https://github.com/owner/repo").unwrap();
+        let branch = Some("main".to_string());
+        let subscriber = NewSubscriber::new(email.clone(), repo_url.clone(), branch.clone());
+
+        assert_eq!(subscriber.email().as_str(), email.as_str());
+        assert_eq!(subscriber.repository_url().url(), repo_url.url());
+        assert_eq!(subscriber.branch(), branch.as_ref());
+    }
+}
