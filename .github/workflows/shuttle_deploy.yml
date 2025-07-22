@@ -17,4 +17,3 @@ jobs:
         with:
           shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
           project-id: ${{ secrets.SHUTTLE_PROJECT_ID }}
-          working-directory: rook

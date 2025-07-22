@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/reddevilmidzy/queensac"
 license = "Apache-2.0"
-readme = "../README.md"
+readme = "README.md"
 
 [dependencies]
 axum = "0.8"

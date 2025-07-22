@@ -1,5 +1,20 @@
-rook/target
+# Cargo
+/target
 
+# IDEs
 /.idea
-rook/.shuttle*
-rook/Secrets*.toml
+
+# Shuttle
+.shuttle*
+Secrets*.toml
+
+# vim swap files
+*.swp
+*.swo
+*.swn
+
+# Vim backup files
+*~
+
+# Vim undo files
+*.un~
