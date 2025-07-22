@@ -8,6 +8,6 @@ updates:
       interval: "weekly"
 
   - package-ecosystem: "cargo"
-    directory: "/rook/"
+    directory: "/"
     schedule:
       interval: "daily"
