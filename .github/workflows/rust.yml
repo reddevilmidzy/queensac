@@ -12,7 +12,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  SQLX_OFFLINE: true
 
 jobs:
   security:
@@ -88,19 +87,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
@@ -118,26 +104,11 @@ jobs:
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('Cargo.lock') }}
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: cargo test --verbose
 
   coverage:
     needs: test
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -161,8 +132,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate coverage report
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: |
           cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
 

@@ -1,10 +1,10 @@
-use crate::{Settings, StreamRequest, init_db, stream_link_checks};
+use crate::{RepositoryURL, Settings, stream_link_checks};
 use axum::{Router, extract::Query, http::HeaderValue, routing::get};
 use reqwest::{
     Method,
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
 };
-use sqlx::PgPool;
+use serde::Deserialize;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
@@ -14,18 +14,16 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(configuration: Settings, pool: PgPool) -> Result<Self, std::io::Error> {
-        init_db(&pool).await.expect("Failed to initialize database");
-
+    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         // Wrap once, then reuse.
         let configuration = Arc::new(configuration);
         let port = configuration.application.port;
-        let router = Self::app(pool, configuration.clone());
+        let router = Self::app(configuration.clone());
 
         Ok(Self { port, router })
     }
 
-    pub fn app(pool: PgPool, configuration: Arc<Settings>) -> Router {
+    pub fn app(configuration: Arc<Settings>) -> Router {
         let allowed_origins: Vec<HeaderValue> = configuration
             .cors
             .allowed_origins
@@ -47,7 +45,7 @@ impl Application {
             .route("/", get(|| async { "Sacrifice the Queen!!" }))
             .route("/health", get(health_check))
             .route("/stream", get(stream_handler))
-            .with_state((pool, configuration))
+            .with_state(configuration)
             .layer(cors)
     }
 }
@@ -58,4 +56,10 @@ async fn health_check() -> &'static str {
 
 async fn stream_handler(Query(params): Query<StreamRequest>) -> impl axum::response::IntoResponse {
     stream_link_checks(params.repo_url.url().to_string(), params.branch).await
+}
+
+#[derive(Deserialize)]
+pub struct StreamRequest {
+    pub repo_url: RepositoryURL,
+    pub branch: Option<String>,
 }
