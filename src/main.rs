@@ -1,5 +1,4 @@
-use queensac::configuration::get_configuration;
-use queensac::{Application, KoreanTime};
+use queensac::{Application, KoreanTime, get_configuration};
 
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;

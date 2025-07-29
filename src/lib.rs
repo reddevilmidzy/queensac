@@ -1,8 +1,8 @@
-pub mod configuration;
-pub mod domain;
-pub mod git;
-pub mod link_checker;
-pub mod startup;
+mod configuration;
+mod domain;
+mod git;
+mod link_checker;
+mod startup;
 
 pub use configuration::*;
 pub use domain::*;

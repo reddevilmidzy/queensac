@@ -29,7 +29,7 @@ impl RepositoryURL {
     /// # Examples
     ///
     /// ```
-    /// use queensac::domain::RepositoryURL;
+    /// use queensac::RepositoryURL;
     ///
     /// let url = RepositoryURL::new("https://github.com/owner/repo").unwrap();
     /// ```
