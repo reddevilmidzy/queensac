@@ -1,12 +1,5 @@
-email_client:
-  sender_email: "noreply@queens.ac"
-  authorization_token: "test-token"
-
 cors:
   allowed_origins:
     - "http://localhost:3000"
     - "https://queens.ac"
     - "https://www.queens.ac"
-
-repository_checker:
-  interval_seconds: 120  # 2 minutes for local development

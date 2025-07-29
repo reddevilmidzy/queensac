@@ -1,16 +1,12 @@
-use queensac::configuration::get_configuration_with_secrets;
+use queensac::configuration::get_configuration;
 use queensac::{Application, KoreanTime};
 
-use shuttle_runtime::SecretStore;
 use sqlx::PgPool;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 #[shuttle_runtime::main]
-async fn main(
-    #[shuttle_shared_db::Postgres] pool: PgPool,
-    #[shuttle_runtime::Secrets] secrets: SecretStore,
-) -> shuttle_axum::ShuttleAxum {
+async fn main(#[shuttle_shared_db::Postgres] pool: PgPool) -> shuttle_axum::ShuttleAxum {
     FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_target(false)
@@ -25,8 +21,7 @@ async fn main(
         .init();
 
     info!("Starting queensac service...");
-    let configuration =
-        get_configuration_with_secrets(Some(&secrets)).expect("Failed to read configuration.");
+    let configuration = get_configuration().expect("Failed to read configuration.");
 
     let app = Application::build(configuration, pool)
         .await
