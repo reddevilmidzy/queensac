@@ -1,7 +1,6 @@
 use crate::RepoManager;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use std::path::PathBuf;
 use thiserror::Error;
 use tracing::{error, info};
@@ -21,11 +20,9 @@ pub enum PrError {
     Json(#[from] serde_json::Error),
     #[error("Configuration error: {0}")]
     Config(String),
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
 }
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 /// Represents a file change to be included in a pull request.
 pub struct FileChange {
     pub file_path: String,
@@ -90,68 +87,6 @@ impl PullRequestGenerator {
             author_email,
             http_client,
         }
-    }
-
-    /// Finds the repository ID in the database for a given URL and branch.
-    ///
-    /// # Arguments
-    /// * `pool` - The database connection pool
-    /// * `repo_url` - The repository URL
-    /// * `branch` - The branch name (optional)
-    pub async fn find_repo_id(
-        &self,
-        pool: &PgPool,
-        repo_url: &str,
-        branch: Option<&str>,
-    ) -> Result<i32, PrError> {
-        let repo_id = sqlx::query!(
-            "SELECT id FROM repo WHERE repo_url = $1 AND branch = $2",
-            repo_url,
-            branch
-        )
-        .fetch_one(pool)
-        .await?;
-
-        Ok(repo_id.id)
-    }
-
-    /// Finds file changes for a given repository ID.
-    ///
-    /// # Arguments
-    /// * `pool` - The database connection pool
-    /// * `repo_id` - The repository ID
-    pub async fn find_file_changes(
-        &self,
-        pool: &PgPool,
-        repo_id: i32,
-    ) -> Result<Vec<FileChange>, PrError> {
-        let result = sqlx::query_as!(
-            FileChange,
-            "SELECT file_path, old_content, new_content, line_number FROM check_result WHERE repo_id = $1",
-            repo_id
-        ).fetch_all(pool)
-        .await?;
-
-        Ok(result)
-    }
-
-    /// Finds the check result and creates a fix pull request.
-    ///
-    /// # Arguments
-    /// * `pool` - The database connection pool
-    /// * `repo_url` - The repository URL
-    /// * `branch` - The branch name (optional)
-    pub async fn find_check_result(
-        &self,
-        pool: &PgPool,
-        repo_url: &str,
-        branch: Option<&str>,
-    ) -> Result<String, PrError> {
-        let repo_id = self.find_repo_id(pool, repo_url, branch).await?;
-        let file_changes = self.find_file_changes(pool, repo_id).await?;
-
-        let pr_url = self.create_fix_pr(file_changes).await?;
-        Ok(pr_url)
     }
 
     /// Creates a pull request with link fixes.
