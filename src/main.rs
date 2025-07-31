@@ -1,17 +1,12 @@
-use queensac::configuration::get_configuration_with_secrets;
-use queensac::{Application, KoreanTime};
+use queensac::{Application, KoreanTime, get_configuration};
+use std::net::SocketAddr;
+use tokio::net;
+use tracing::{Level, error, info};
 
-use shuttle_runtime::SecretStore;
-use sqlx::PgPool;
-use tracing::{Level, info};
-use tracing_subscriber::FmtSubscriber;
-
-#[shuttle_runtime::main]
-async fn main(
-    #[shuttle_shared_db::Postgres] pool: PgPool,
-    #[shuttle_runtime::Secrets] secrets: SecretStore,
-) -> shuttle_axum::ShuttleAxum {
-    FmtSubscriber::builder()
+#[tokio::main]
+async fn main() {
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_target(false)
         .with_thread_ids(true)
@@ -25,12 +20,43 @@ async fn main(
         .init();
 
     info!("Starting queensac service...");
-    let configuration =
-        get_configuration_with_secrets(Some(&secrets)).expect("Failed to read configuration.");
 
-    let app = Application::build(configuration, pool)
-        .await
-        .expect("Failed to build application.");
+    // Load configuration
+    let configuration = match get_configuration() {
+        Ok(config) => config,
+        Err(e) => {
+            error!("Failed to read configuration: {}", e);
+            std::process::exit(1);
+        }
+    };
 
-    Ok(app.router.into())
+    // Build application
+    let app = match Application::build(configuration).await {
+        Ok(app) => app,
+        Err(e) => {
+            error!("Failed to build application: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Create socket address
+    let addr = SocketAddr::from(([127, 0, 0, 1], app.port));
+    info!("Server listening on {}", addr);
+
+    // Start the server
+    let listener = match net::TcpListener::bind(addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            error!("Failed to bind to address {}: {}", addr, e);
+            std::process::exit(1);
+        }
+    };
+
+    info!("queensac service is running on http://{}", addr);
+
+    // Serve the application
+    if let Err(e) = axum::serve(listener, app.router).await {
+        error!("Server error: {}", e);
+        std::process::exit(1);
+    }
 }

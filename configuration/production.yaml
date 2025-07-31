@@ -2,6 +2,3 @@ cors:
   allowed_origins:
     - "https://queens.ac"
     - "https://www.queens.ac"
-
-repository_checker:
-  interval_seconds: 86400 # 24 hours in seconds
