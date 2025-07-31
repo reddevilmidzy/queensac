@@ -1,5 +1,4 @@
 use config::{Config, File, FileFormat};
-use secrecy::Secret;
 use serde::Deserialize;
 use std::env;
 
@@ -19,25 +18,8 @@ pub struct ApplicationSettings {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct EmailClientSettings {
-    pub base_url: String,
-    pub sender_email: String,
-    #[serde(deserialize_with = "deserialize_secret")]
-    pub authorization_token: Secret<String>,
-    pub timeout_seconds: u64,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct CorsSettings {
     pub allowed_origins: Vec<String>,
-}
-
-fn deserialize_secret<'de, D>(deserializer: D) -> Result<Secret<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    Ok(Secret::new(s))
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
