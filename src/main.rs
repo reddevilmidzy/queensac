@@ -3,6 +3,18 @@ use std::net::SocketAddr;
 use tokio::net;
 use tracing::{Level, error, info};
 
+/// Initializes logging, loads configuration, builds the application, and starts the HTTP server.
+///
+/// This is the entry point for the queensac service. It sets up tracing, loads configuration,
+/// constructs the application, binds to the specified port on localhost, and serves HTTP requests.
+/// On any critical failure during startup, the process logs the error and exits.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run the application (typically executed as the main binary)
+/// tokio::main();
+/// ```
 #[tokio::main]
 async fn main() {
     // Initialize tracing subscriber

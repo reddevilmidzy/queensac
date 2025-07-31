@@ -14,6 +14,10 @@ pub struct Application {
 }
 
 impl Application {
+    /// Asynchronously constructs an `Application` instance with the specified configuration.
+    ///
+    /// Initializes the application's port and router using the provided settings.
+    /// Returns an `Application` on success, or an I/O error if initialization fails.
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         // Wrap once, then reuse.
         let configuration = Arc::new(configuration);
@@ -23,6 +27,25 @@ impl Application {
         Ok(Self { port, router })
     }
 
+    /// Constructs the Axum router with configured routes, shared state, and CORS settings.
+    ///
+    /// The router includes the following routes:
+    /// - `/`: Returns a static string.
+    /// - `/health`: Returns a health check response.
+    /// - `/stream`: Handles streaming requests with query parameters.
+    ///
+    /// CORS is configured based on the provided settings, allowing specified origins, HTTP methods, headers, and credentials.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the configured CORS origins are invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let settings = Arc::new(Settings::default());
+    /// let router = app(settings);
+    /// ```
     pub fn app(configuration: Arc<Settings>) -> Router {
         let allowed_origins: Vec<HeaderValue> = configuration
             .cors
@@ -50,10 +73,29 @@ impl Application {
     }
 }
 
+/// Health check endpoint that returns a static "OK" response.
+///
+/// # Examples
+///
+/// ```
+/// let status = health_check().await;
+/// assert_eq!(status, "OK");
+/// ```
 async fn health_check() -> &'static str {
     "OK"
 }
 
+/// Handles streaming link checks for a repository.
+///
+/// Extracts repository URL and optional branch from the query parameters,
+/// then performs streaming link checks and returns the result as the response.
+///
+/// # Examples
+///
+/// ```
+/// // Example request: GET /stream?repo_url=https://github.com/example/repo&branch=main
+/// // The handler will respond with the result of streaming link checks.
+/// ```
 async fn stream_handler(Query(params): Query<StreamRequest>) -> impl axum::response::IntoResponse {
     stream_link_checks(params.repo_url.url().to_string(), params.branch).await
 }

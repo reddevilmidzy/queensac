@@ -59,16 +59,9 @@ pub struct PullRequestGenerator {
 }
 
 impl PullRequestGenerator {
-    /// Creates a new PullRequestGenerator.
+    /// Constructs a new `PullRequestGenerator` with the specified repository manager, GitHub credentials, branch names, author information, and HTTP client.
     ///
-    /// # Arguments
-    /// * `repo_manager` - The repository manager instance
-    /// * `github_token` - GitHub API token
-    /// * `base_branch` - The base branch for the pull request
-    /// * `feature_branch` - The feature branch to create
-    /// * `author_name` - The commit author name
-    /// * `author_email` - The commit author email
-    /// * `http_client` - The HTTP client for API requests
+    /// Initializes the generator for creating pull requests that fix broken links in a repository.
     pub fn new(
         repo_manager: RepoManager,
         github_token: String,
