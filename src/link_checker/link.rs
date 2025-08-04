@@ -34,7 +34,7 @@ fn handle_github_404(url: &str) -> LinkCheckResult {
 
 pub async fn check_link(url: &str) -> LinkCheckResult {
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
