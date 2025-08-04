@@ -58,7 +58,7 @@ impl PullRequestGenerator {
         let octocrab = Octocrab::builder()
             .personal_token(github_token)
             .build()
-            .expect("Failed to build Octocrab instance");
+            .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
 
         Self {
             repo_manager,
@@ -267,7 +267,12 @@ impl PullRequestGenerator {
             .map_err(|e| PrError::GitHub(format!("Failed to create PR: {e}")))?;
 
         info!("Successfully created PR #{}", pr.number);
-        Ok(pr.html_url.map(|url| url.to_string()).unwrap_or_default())
+        match pr.html_url {
+            Some(url) => Ok(url.to_string()),
+            None => Err(PrError::GitHub(
+                "PR created but no URL returned by GitHub API".to_string(),
+            )),
+        }
     }
 
     /// Gets the owner and repository name from the repository path.
