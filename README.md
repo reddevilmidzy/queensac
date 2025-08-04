@@ -1,4 +1,9 @@
 # queensac
+![GitHub Stars](https://img.shields.io/github/stars/reddevilmidzy/queensac)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+![Security](https://img.shields.io/badge/security-audited-brightgreen.svg)
+[![Coverage Status](https://coveralls.io/repos/github/reddevilmidzy/queensac/badge.svg?branch=main)](https://coveralls.io/github/reddevilmidzy/queensac?branch=main)
+[![Rust](https://github.com/reddevilmidzy/queensac/actions/workflows/rust.yml/badge.svg)](https://github.com/reddevilmidzy/queensac/actions/workflows/rust.yml)
 
 > 자동화된 링크 검증 및 수정 서비스
 
