@@ -1,5 +1,5 @@
 use queensac::{KoreanTime, stream_link_checks};
-use tracing::{Level, info};
+use tracing::{Level, error, info};
 
 fn main() {
     // Initialize tracing subscriber
@@ -24,10 +24,13 @@ fn main() {
         .expect("Failed to create Tokio runtime");
 
     rt.block_on(async {
-        stream_link_checks(
+        if let Err(e) = stream_link_checks(
             "https://github.com/reddevilmidzy/queensac".to_string(),
             None,
         )
-        .await;
+        .await
+        {
+            error!("Failed to stream link checks: {}", e);
+        }
     });
 }

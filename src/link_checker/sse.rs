@@ -75,8 +75,11 @@ impl LinkCheckCounters {
     }
 }
 
-#[instrument(skip(), fields(repo_url = repo_url))]
-pub async fn stream_link_checks(repo_url: String, branch: Option<String>) -> LinkCheckSummaryEvent {
+#[instrument(level = "info", skip_all, fields(repo_url = %repo_url, branch = ?branch))]
+pub async fn stream_link_checks(
+    repo_url: String,
+    branch: Option<String>,
+) -> Result<LinkCheckSummaryEvent, String> {
     info!(
         "Starting link checks for repository: {} (branch: {:?})",
         repo_url, branch
@@ -90,13 +93,7 @@ pub async fn stream_link_checks(repo_url: String, branch: Option<String>) -> Lin
         }
         Err(e) => {
             error!("Error processing repository: {}", e);
-            return LinkCheckSummaryEvent {
-                total: 0,
-                valid: 0,
-                invalid: 0,
-                redirect: 0,
-                moved: 0,
-            };
+            return Err(e.to_string());
         }
     };
 
@@ -157,7 +154,7 @@ pub async fn stream_link_checks(repo_url: String, branch: Option<String>) -> Lin
         moved = summary.moved,
         "link check summary"
     );
-    return summary;
+    return Ok(summary);
 }
 
 #[cfg(test)]
@@ -169,6 +166,9 @@ mod tests {
         let repo_url = "https://github.com/reddevilmidzy/kingsac".to_string();
         let branch = Some("main".to_string());
         let summary = stream_link_checks(repo_url, branch).await;
+
+        assert!(summary.is_ok());
+        let summary = summary.unwrap();
         assert_eq!(
             summary.total,
             summary.valid + summary.invalid + summary.redirect + summary.moved
