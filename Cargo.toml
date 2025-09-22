@@ -25,7 +25,7 @@ dotenvy = "0.15"
 chrono = { version = "0.4.41", features = ["serde"] }
 config = "0.15"
 thiserror = "2.0"
-octocrab = "0.44.1"
+octocrab = "0.45.0"
 url = "2.5.6"
 
 [dev-dependencies]
