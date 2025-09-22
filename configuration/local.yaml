@@ -1,5 +1,0 @@
-cors:
-  allowed_origins:
-    - "http://localhost:3000"
-    - "https://queens.ac"
-    - "https://www.queens.ac"
