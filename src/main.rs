@@ -5,9 +5,9 @@ use tracing::{Level, error};
 #[derive(Debug, Parser)]
 #[command(name = "queensac", about = "Link checker for a GitHub repo")]
 struct Args {
-    #[arg(long = "repo", help = "GitHub repository URL")]
+    #[arg(long = "repo", short = 'r', help = "GitHub repository URL")]
     repo: String,
-    #[arg(long = "branch", help = "Target branch to check")]
+    #[arg(long = "branch", short = 'b', help = "Target branch to check")]
     branch: Option<String>,
 }
 
