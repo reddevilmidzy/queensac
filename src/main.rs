@@ -1,8 +1,17 @@
+use clap::Parser;
 use queensac::{KoreanTime, stream_link_checks};
-use tracing::{Level, error, info};
+use tracing::{Level, error};
+
+#[derive(Debug, Parser)]
+#[command(name = "queensac", about = "Link checker for a GitHub repo")]
+struct Args {
+    #[arg(long = "repo", short = 'r', help = "GitHub repository URL")]
+    repo: String,
+    #[arg(long = "branch", short = 'b', help = "Target branch to check")]
+    branch: Option<String>,
+}
 
 fn main() {
-    // Initialize tracing subscriber
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_target(false)
@@ -16,7 +25,7 @@ fn main() {
         .pretty()
         .init();
 
-    info!("Starting queensac service...");
+    let args = Args::parse();
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -24,12 +33,7 @@ fn main() {
         .expect("Failed to create Tokio runtime");
 
     rt.block_on(async {
-        if let Err(e) = stream_link_checks(
-            "https://github.com/reddevilmidzy/queensac".to_string(),
-            None,
-        )
-        .await
-        {
+        if let Err(e) = stream_link_checks(args.repo, args.branch).await {
             error!("Failed to stream link checks: {}", e);
         }
     });
