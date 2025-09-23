@@ -8,9 +8,9 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-regex = "1"
+regex = "1.11"
 reqwest = { version = "0.12", features = ["json", "stream"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.47", features = ["full"] }
 tokio-util = "0.7"
 git2 = "0.20"
 serde = { version = "1.0", features = ["derive"] }
@@ -24,7 +24,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 thiserror = "2.0"
 octocrab = "0.45.0"
 url = "2.5.6"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 
 [dev-dependencies]
 serial_test = "3.0.0"
