@@ -4,10 +4,6 @@
 # IDEs
 /.idea
 
-# Shuttle
-.shuttle*
-Secrets*.toml
-
 # vim swap files
 *.swp
 *.swo
