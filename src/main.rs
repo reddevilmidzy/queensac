@@ -9,6 +9,13 @@ struct Args {
     repo: String,
     #[arg(long = "branch", short = 'b', help = "Target branch to check")]
     branch: Option<String>,
+    #[arg(
+        long = "dry-run",
+        short = 'd',
+        default_value_t = false,
+        help = "Dry run mode"
+    )]
+    dry_run: bool,
 }
 
 fn main() {
@@ -33,7 +40,9 @@ fn main() {
         .expect("Failed to create Tokio runtime");
 
     rt.block_on(async {
-        if let Err(e) = stream_link_checks(args.repo, args.branch).await {
+        if args.dry_run
+            && let Err(e) = stream_link_checks(args.repo, args.branch).await
+        {
             error!("Failed to stream link checks: {}", e);
         }
     });

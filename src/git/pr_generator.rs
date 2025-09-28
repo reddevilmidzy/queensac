@@ -18,8 +18,8 @@ pub enum PrError {
     Config(String),
 }
 
-#[derive(Debug)]
 /// Represents a file change to be included in a pull request.
+#[derive(Debug)]
 pub struct FileChange {
     pub file_path: String,
     pub old_content: String,
@@ -52,13 +52,13 @@ impl PullRequestGenerator {
         github_token: String,
         base_branch: String,
         feature_branch: String,
-        author_name: String,
-        author_email: String,
     ) -> Self {
         let octocrab = Octocrab::builder()
             .personal_token(github_token)
             .build()
             .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
+        let author_name = "queensac".to_string();
+        let author_email = "noreply@queens.ac".to_string();
 
         Self {
             repo_manager,
@@ -324,8 +324,6 @@ mod tests {
             "test_token".to_string(),
             "main".to_string(),
             "fix-links".to_string(),
-            "Test User".to_string(),
-            "test@example.com".to_string(),
         )
     }
 
@@ -358,7 +356,7 @@ mod tests {
         index.add_path(std::path::Path::new("test.md")).unwrap();
         index.write().unwrap();
 
-        let signature = git2::Signature::now("Test User", "test@example.com").unwrap();
+        let signature = git2::Signature::now("queensac", "noreply@queens.ac").unwrap();
         let tree_id = index.write_tree().unwrap();
         let tree = repo.find_tree(tree_id).unwrap();
 
