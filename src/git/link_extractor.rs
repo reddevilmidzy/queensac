@@ -1,5 +1,4 @@
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::RepoManager;
@@ -7,7 +6,7 @@ use crate::RepoManager;
 const REGEX_DOMAIN: &str = r"https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)";
 const REGEX_IP_ADDRESS: &str = r"https?://(localhost|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 /// Represents a hyperlink found in a repository, along with its location.
 pub struct LinkInfo {
     /// The URL string. This should be a valid HTTP or HTTPS URL.
