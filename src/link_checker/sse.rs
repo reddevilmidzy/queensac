@@ -1,7 +1,4 @@
-use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::{error, info, instrument};
 
 use crate::{LinkCheckResult, check_link, git};
@@ -24,62 +21,69 @@ pub struct LinkCheckSummaryEvent {
     pub moved: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct InvalidLinkInfo {
+    pub url: String,
+    pub file_path: String,
+    pub line_number: usize,
+}
+
 #[derive(Debug)]
 struct LinkCheckCounters {
-    total: AtomicUsize,
-    valid: AtomicUsize,
-    invalid: AtomicUsize,
-    redirect: AtomicUsize,
-    moved: AtomicUsize,
+    total: usize,
+    valid: usize,
+    invalid: usize,
+    redirect: usize,
+    moved: usize,
 }
 
 impl LinkCheckCounters {
     fn new() -> Self {
         Self {
-            total: AtomicUsize::new(0),
-            valid: AtomicUsize::new(0),
-            invalid: AtomicUsize::new(0),
-            redirect: AtomicUsize::new(0),
-            moved: AtomicUsize::new(0),
+            total: 0,
+            valid: 0,
+            invalid: 0,
+            redirect: 0,
+            moved: 0,
         }
     }
 
-    fn increment_total(&self) {
-        self.total.fetch_add(1, Ordering::Relaxed);
+    fn increment_total(&mut self) {
+        self.total += 1;
     }
 
-    fn increment_valid(&self) {
-        self.valid.fetch_add(1, Ordering::Relaxed);
+    fn increment_valid(&mut self) {
+        self.valid += 1;
     }
 
-    fn increment_invalid(&self) {
-        self.invalid.fetch_add(1, Ordering::Relaxed);
+    fn increment_invalid(&mut self) {
+        self.invalid += 1;
     }
 
-    fn increment_redirect(&self) {
-        self.redirect.fetch_add(1, Ordering::Relaxed);
+    fn increment_redirect(&mut self) {
+        self.redirect += 1;
     }
 
-    fn increment_moved(&self) {
-        self.moved.fetch_add(1, Ordering::Relaxed);
+    fn increment_moved(&mut self) {
+        self.moved += 1;
     }
 
     fn to_summary(&self) -> LinkCheckSummaryEvent {
         LinkCheckSummaryEvent {
-            total: self.total.load(Ordering::Relaxed),
-            valid: self.valid.load(Ordering::Relaxed),
-            invalid: self.invalid.load(Ordering::Relaxed),
-            redirect: self.redirect.load(Ordering::Relaxed),
-            moved: self.moved.load(Ordering::Relaxed),
+            total: self.total,
+            valid: self.valid,
+            invalid: self.invalid,
+            redirect: self.redirect,
+            moved: self.moved,
         }
     }
 }
 
 #[instrument(level = "info", skip_all, fields(repo_url = %repo_url, branch = ?branch))]
-pub async fn stream_link_checks(
+pub async fn check_links(
     repo_url: String,
     branch: Option<String>,
-) -> Result<LinkCheckSummaryEvent, String> {
+) -> Result<Vec<InvalidLinkInfo>, String> {
     info!(
         "Starting link checks for repository: {} (branch: {:?})",
         repo_url, branch
@@ -97,53 +101,53 @@ pub async fn stream_link_checks(
         }
     };
 
-    let counters = Arc::new(LinkCheckCounters::new());
+    let mut counters = LinkCheckCounters::new();
+    let mut invalid_links = Vec::new();
 
-    stream::iter(links)
-        .map({
-            let counters = Arc::clone(&counters);
-            move |link| {
-                let counters = Arc::clone(&counters);
-                async move {
-                    let result = check_link(&link.url).await;
+    for link in links {
+        let result = check_link(&link.url).await;
 
-                    counters.increment_total();
-                    match &result {
-                        LinkCheckResult::Valid => counters.increment_valid(),
-                        LinkCheckResult::Invalid(_) => counters.increment_invalid(),
-                        LinkCheckResult::Redirect(_) => counters.increment_redirect(),
-                        LinkCheckResult::GitHubFileMoved(_) => counters.increment_moved(),
-                    };
+        counters.increment_total();
 
-                    let status = match &result {
-                        LinkCheckResult::Valid => "valid",
-                        LinkCheckResult::Invalid(_) => "invalid",
-                        LinkCheckResult::Redirect(_) => "redirect",
-                        LinkCheckResult::GitHubFileMoved(_) => "file_moved",
-                    };
+        match &result {
+            LinkCheckResult::Valid => counters.increment_valid(),
+            LinkCheckResult::Invalid(_) => counters.increment_invalid(),
+            LinkCheckResult::Redirect(_) => counters.increment_redirect(),
+            LinkCheckResult::GitHubFileMoved(_) => counters.increment_moved(),
+        };
 
-                    let message: Option<String> = match result {
-                        LinkCheckResult::Valid => None,
-                        LinkCheckResult::Invalid(msg) => Some(msg),
-                        LinkCheckResult::Redirect(url) => Some(format!("Redirected to: {url}")),
-                        LinkCheckResult::GitHubFileMoved(msg) => Some(format!("Moved to: {msg}")),
-                    };
+        let status = match &result {
+            LinkCheckResult::Valid => "valid",
+            LinkCheckResult::Invalid(_) => "invalid",
+            LinkCheckResult::Redirect(_) => "redirect",
+            LinkCheckResult::GitHubFileMoved(_) => "file_moved",
+        };
 
-                    let message_str = message.as_deref().unwrap_or("");
-                    info!(
-                        url = %link.url,
-                        file_path = %link.file_path,
-                        line_number = link.line_number as u32,
-                        status = %status,
-                        message = %message_str,
-                        "link check"
-                    );
-                }
-            }
-        })
-        .buffer_unordered(10)
-        .for_each(|_| async {})
-        .await;
+        let message: Option<String> = match &result {
+            LinkCheckResult::Valid => None,
+            LinkCheckResult::Invalid(msg) => Some(msg.clone()),
+            LinkCheckResult::Redirect(url) => Some(format!("Redirected to: {url}")),
+            LinkCheckResult::GitHubFileMoved(msg) => Some(format!("Moved to: {msg}")),
+        };
+
+        let message_str = message.as_deref().unwrap_or("");
+        info!(
+            url = %link.url,
+            file_path = %link.file_path,
+            line_number = link.line_number as u32,
+            status = %status,
+            message = %message_str,
+            "link check"
+        );
+
+        if !matches!(result, LinkCheckResult::Valid) {
+            invalid_links.push(InvalidLinkInfo {
+                url: link.url,
+                file_path: link.file_path,
+                line_number: link.line_number,
+            });
+        }
+    }
 
     let summary = counters.to_summary();
     info!(
@@ -154,7 +158,8 @@ pub async fn stream_link_checks(
         moved = summary.moved,
         "link check summary"
     );
-    return Ok(summary);
+
+    return Ok(invalid_links);
 }
 
 #[cfg(test)]
@@ -165,13 +170,9 @@ mod tests {
     async fn test_stream_link_checks_runs() {
         let repo_url = "https://github.com/reddevilmidzy/kingsac".to_string();
         let branch = Some("main".to_string());
-        let summary = stream_link_checks(repo_url, branch).await;
-
-        assert!(summary.is_ok());
-        let summary = summary.unwrap();
-        assert_eq!(
-            summary.total,
-            summary.valid + summary.invalid + summary.redirect + summary.moved
-        );
+        let invalid_links = check_links(repo_url, branch).await;
+        assert!(invalid_links.is_ok());
+        let invalid_links = invalid_links.unwrap();
+        assert_eq!(invalid_links.len(), 0);
     }
 }
