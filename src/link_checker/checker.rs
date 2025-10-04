@@ -6,7 +6,7 @@ pub struct LinkChecker {
 }
 
 impl LinkChecker {
-    pub fn new() -> LinkChecker {
+    pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .redirect(reqwest::redirect::Policy::none())
@@ -50,6 +50,12 @@ impl LinkChecker {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         }
         LinkCheckResult::Invalid("Max retries exceeded".to_string())
+    }
+}
+
+impl Default for LinkChecker {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
