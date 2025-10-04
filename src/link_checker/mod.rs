@@ -1,5 +1,5 @@
 mod link;
-mod sse;
+mod service;
 
 pub use link::{LinkCheckResult, check_link};
-pub use sse::{LinkCheckEvent, stream_link_checks};
+pub use service::{InvalidLinkInfo, LinkCheckEvent, check_links};

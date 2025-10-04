@@ -1,5 +1,5 @@
 use clap::Parser;
-use queensac::{KoreanTime, stream_link_checks};
+use queensac::{KoreanTime, check_links};
 use tracing::{Level, error};
 
 #[derive(Debug, Parser)]
@@ -40,10 +40,15 @@ fn main() {
         .expect("Failed to create Tokio runtime");
 
     rt.block_on(async {
-        if args.dry_run
-            && let Err(e) = stream_link_checks(args.repo, args.branch).await
-        {
-            error!("Failed to stream link checks: {}", e);
+        if args.dry_run {
+            let result = check_links(args.repo, args.branch).await;
+            if let Ok(_invalid_links) = result {
+                if !args.dry_run {
+                    todo!("Create pull request");
+                }
+            } else if let Err(e) = result {
+                error!("Failed to stream link checks: {}", e);
+            }
         }
     });
 }
