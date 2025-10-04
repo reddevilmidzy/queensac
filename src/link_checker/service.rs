@@ -1,9 +1,8 @@
-use serde::{Deserialize, Serialize};
 use tracing::{error, info, instrument};
 
 use crate::{LinkCheckResult, check_link, git};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct LinkCheckEvent {
     pub url: String,
     pub file_path: String,
@@ -12,7 +11,7 @@ pub struct LinkCheckEvent {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct LinkCheckSummaryEvent {
     pub total: usize,
     pub valid: usize,
