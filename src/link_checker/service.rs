@@ -1,6 +1,6 @@
 use tracing::{error, info, instrument};
 
-use crate::{LinkCheckResult, check_link, git};
+use crate::{LinkCheckResult, LinkChecker, git};
 
 #[derive(Debug)]
 pub struct LinkCheckEvent {
@@ -100,11 +100,12 @@ pub async fn check_links(
         }
     };
 
+    let link_checker = LinkChecker::new();
     let mut counters = LinkCheckCounters::new();
     let mut invalid_links = Vec::new();
 
     for link in links {
-        let result = check_link(&link.url).await;
+        let result = link_checker.check_link(&link.url).await;
 
         counters.increment_total();
 
