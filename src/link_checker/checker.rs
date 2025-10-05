@@ -6,17 +6,13 @@ pub struct LinkChecker {
 }
 
 impl LinkChecker {
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, reqwest::Error> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .redirect(reqwest::redirect::Policy::none())
-            .build();
+            .build()?;
 
-        if let Ok(client) = client {
-            Ok(LinkChecker { client })
-        } else {
-            Err("failed to create Client".to_string())
-        }
+        Ok(LinkChecker { client })
     }
 
     pub async fn check_link(&self, url: &str) -> LinkCheckResult {
@@ -58,7 +54,7 @@ impl LinkChecker {
 
 impl Default for LinkChecker {
     fn default() -> Self {
-        Self::new().expect("failed to create LinkChecker")
+        Self::new().expect("failed to create LinkChecker client")
     }
 }
 
