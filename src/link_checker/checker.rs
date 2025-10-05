@@ -1,6 +1,63 @@
 use crate::{GitHubUrl, RepoManager};
 use url::Url;
 
+pub struct LinkChecker {
+    client: reqwest::Client,
+}
+
+impl LinkChecker {
+    pub fn new() -> Result<Self, reqwest::Error> {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+
+        Ok(LinkChecker { client })
+    }
+
+    pub async fn check_link(&self, url: &str) -> LinkCheckResult {
+        let mut attempts = 3;
+        while attempts > 0 {
+            match self.client.get(url).send().await {
+                Ok(res) => {
+                    let status = res.status();
+                    if status.is_success() {
+                        return LinkCheckResult::Valid;
+                    } else if status.is_redirection() {
+                        if let Some(redirect_url) = res.headers().get("location")
+                            && let Ok(redirect_str) = redirect_url.to_str()
+                        {
+                            if is_trivial_redirect(url, redirect_str) {
+                                return LinkCheckResult::Valid;
+                            }
+                            return LinkCheckResult::Redirect(redirect_str.to_string());
+                        }
+                        return LinkCheckResult::Valid;
+                    } else if status.as_u16() == 404 && url.contains("github.com") {
+                        return handle_github_404(url);
+                    } else {
+                        return LinkCheckResult::Invalid(format!("HTTP status code: {status}"));
+                    }
+                }
+                Err(e) => {
+                    if attempts == 1 {
+                        return LinkCheckResult::Invalid(format!("Request error: {e}"));
+                    }
+                }
+            }
+            attempts -= 1;
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+        LinkCheckResult::Invalid("Max retries exceeded".to_string())
+    }
+}
+
+impl Default for LinkChecker {
+    fn default() -> Self {
+        Self::new().expect("failed to create LinkChecker client")
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum LinkCheckResult {
     Valid,
@@ -30,48 +87,6 @@ fn handle_github_404(url: &str) -> LinkCheckResult {
         Ok(None) => LinkCheckResult::Invalid(format!("File not found in repository: {url}")),
         Err(e) => LinkCheckResult::Invalid(format!("Error finding file location: {e}")),
     }
-}
-
-pub async fn check_link(url: &str) -> LinkCheckResult {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
-
-    let mut attempts = 3;
-    while attempts > 0 {
-        match client.get(url).send().await {
-            Ok(res) => {
-                let status = res.status();
-                if status.is_success() {
-                    return LinkCheckResult::Valid;
-                } else if status.is_redirection() {
-                    if let Some(redirect_url) = res.headers().get("location")
-                        && let Ok(redirect_str) = redirect_url.to_str()
-                    {
-                        if is_trivial_redirect(url, redirect_str) {
-                            return LinkCheckResult::Valid;
-                        }
-                        return LinkCheckResult::Redirect(redirect_str.to_string());
-                    }
-                    return LinkCheckResult::Valid;
-                } else if status.as_u16() == 404 && url.contains("github.com") {
-                    return handle_github_404(url);
-                } else {
-                    return LinkCheckResult::Invalid(format!("HTTP status code: {status}"));
-                }
-            }
-            Err(e) => {
-                if attempts == 1 {
-                    return LinkCheckResult::Invalid(format!("Request error: {e}"));
-                }
-            }
-        }
-        attempts -= 1;
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
-    LinkCheckResult::Invalid("Max retries exceeded".to_string())
 }
 
 fn is_trivial_redirect(original: &str, redirect: &str) -> bool {
@@ -109,29 +124,32 @@ mod tests {
 
     #[tokio::test]
     async fn validate_link() {
+        let link_checker = LinkChecker::default();
         let link = "https://redddy.ai";
         assert!(matches!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Invalid(_)
         ));
         let link = "https://lazypazy.tistory.com";
-        assert_eq!(check_link(link).await, LinkCheckResult::Valid);
+        assert_eq!(link_checker.check_link(link).await, LinkCheckResult::Valid);
     }
 
     #[tokio::test]
     async fn change_organization_name() {
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/Bibimbap-Team/git-playground";
         assert_eq!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Redirect("https://github.com/Coduck-Team/git-playground".to_string())
         );
     }
 
     #[tokio::test]
     async fn change_branch_name() {
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/reddevilmidzy/kingsac/tree/forever";
         assert_eq!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Redirect(
                 "https://github.com/reddevilmidzy/kingsac/tree/lie".to_string()
             )
@@ -140,24 +158,26 @@ mod tests {
 
     #[tokio::test]
     async fn change_repository_name() {
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/reddevilmidzy/test-queensac";
         assert_eq!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Redirect("https://github.com/reddevilmidzy/kingsac".to_string())
         );
     }
 
     #[tokio::test]
     async fn check_redirect_url() {
+        let link_checker = LinkChecker::default();
         let link = "https://gluesql.org/docs";
         assert_eq!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Valid,
             "check trivial redirect"
         );
         let link = "https://gluesql.org/docs/";
         assert_eq!(
-            check_link(link).await,
+            link_checker.check_link(link).await,
             LinkCheckResult::Valid,
             "check trivial redirect"
         );
