@@ -6,6 +6,19 @@ pub struct LinkChecker {
 }
 
 impl LinkChecker {
+    /// Creates a `LinkChecker` with an HTTP client configured to use a 5-second timeout and no redirects.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(LinkChecker)` with the configured `reqwest::Client`, or `Err(reqwest::Error)` if building the client fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use queensac::LinkChecker;
+    ///
+    /// let checker = LinkChecker::new().expect("failed to build LinkChecker");
+    /// ```
     pub fn new() -> Result<Self, reqwest::Error> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
@@ -15,6 +28,39 @@ impl LinkChecker {
         Ok(LinkChecker { client })
     }
 
+    /// Checks a URL and classifies its link status.
+    ///
+    /// Sends an HTTP GET to the given URL (with internal retrying) and returns whether the link is valid,
+    /// redirects (with the redirect target), is invalid (with a short reason), or indicates a GitHub file
+    /// move discovered from a 404 on github.com.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time::Duration;
+    /// use queensac::{LinkChecker, LinkCheckResult};
+    ///
+    /// // Example requires a runtime; create one and run the async call.
+    /// let rt = tokio::runtime::Runtime::new().unwrap();
+    /// rt.block_on(async {
+    ///     let checker = LinkChecker::default();
+    ///     let result = checker.check_link("https://example.com").await;
+    ///     match result {
+    ///         LinkCheckResult::Valid => println!("valid"),
+    ///         LinkCheckResult::Redirect(target) => println!("redirect -> {}", target),
+    ///         LinkCheckResult::Invalid(reason) => println!("invalid: {}", reason),
+    ///         LinkCheckResult::GitHubFileMoved(new_path) => println!("moved: {}", new_path),
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// `LinkCheckResult` indicating the check outcome:
+    /// - `Valid` if the URL resolves successfully or only performs a trivial redirect,
+    /// - `Redirect(String)` with the redirect target for nontrivial redirects,
+    /// - `Invalid(String)` with a brief diagnostic message for HTTP errors, request failures, or retry exhaustion,
+    /// - `GitHubFileMoved(String)` when a GitHub 404 is resolved to a new file location discovered in the repository.
     pub async fn check_link(&self, url: &str) -> LinkCheckResult {
         let mut attempts = 3;
         while attempts > 0 {
@@ -53,6 +99,18 @@ impl LinkChecker {
 }
 
 impl Default for LinkChecker {
+    /// Creates a default LinkChecker configured with a ready-to-use HTTP client.
+    ///
+    /// Panics if the internal HTTP client cannot be constructed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use queensac::LinkChecker;
+    ///
+    /// let checker = LinkChecker::default();
+    /// // `checker` is ready to use for link checks.
+    /// ```
     fn default() -> Self {
         Self::new().expect("failed to create LinkChecker client")
     }
@@ -66,7 +124,19 @@ pub enum LinkCheckResult {
     GitHubFileMoved(String),
 }
 
-/// Handles GitHub 404 errors by attempting to find the current file location
+/// Attempts to resolve a GitHub 404 by locating the file's current path in the repository.
+///
+/// Parses the provided GitHub URL, clones or accesses the repository, and searches for the file's current location.
+///
+/// # Parameters
+///
+/// - `url`: The GitHub URL (file path) that returned a 404.
+///
+/// # Returns
+///
+/// - `LinkCheckResult::GitHubFileMoved(new_path)` if the file was found at a new path inside the repository.
+/// - `LinkCheckResult::Invalid(...)` with a descriptive message if the URL is not a valid GitHub URL, the repository could not be accessed or cloned, the file does not exist in the repository, or an error occurred while searching.
+///
 fn handle_github_404(url: &str) -> LinkCheckResult {
     let parsed = match GitHubUrl::parse(url) {
         Some(parsed) => parsed,
@@ -89,6 +159,14 @@ fn handle_github_404(url: &str) -> LinkCheckResult {
     }
 }
 
+/// Determines whether a redirect URL is a trivial change from the original URL.
+///
+/// A trivial redirect preserves scheme, host, port, and query, and differs only by an
+/// optional trailing slash on the path.
+///
+/// # Returns
+///
+/// `true` if the redirect is trivial (same scheme, host, port, and query, and the path differs only by a trailing slash), `false` otherwise.
 fn is_trivial_redirect(original: &str, redirect: &str) -> bool {
     let orig_url = match Url::parse(original) {
         Ok(url) => url,
