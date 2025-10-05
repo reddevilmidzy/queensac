@@ -100,7 +100,7 @@ pub async fn check_links(
         }
     };
 
-    let link_checker = LinkChecker::new();
+    let link_checker = LinkChecker::default();
     let mut counters = LinkCheckCounters::new();
     let mut invalid_links = Vec::new();
 

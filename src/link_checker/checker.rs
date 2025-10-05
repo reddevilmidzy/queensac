@@ -6,14 +6,17 @@ pub struct LinkChecker {
 }
 
 impl LinkChecker {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, String> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .unwrap();
+            .build();
 
-        LinkChecker { client }
+        if let Ok(client) = client {
+            Ok(LinkChecker { client })
+        } else {
+            Err("failed to create Client".to_string())
+        }
     }
 
     pub async fn check_link(&self, url: &str) -> LinkCheckResult {
@@ -55,7 +58,7 @@ impl LinkChecker {
 
 impl Default for LinkChecker {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("failed to create LinckChecker")
     }
 }
 
@@ -125,7 +128,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_link() {
-        let link_checker = LinkChecker::new();
+        let link_checker = LinkChecker::default();
         let link = "https://redddy.ai";
         assert!(matches!(
             link_checker.check_link(link).await,
@@ -137,7 +140,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_organization_name() {
-        let link_checker = LinkChecker::new();
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/Bibimbap-Team/git-playground";
         assert_eq!(
             link_checker.check_link(link).await,
@@ -147,7 +150,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_branch_name() {
-        let link_checker = LinkChecker::new();
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/reddevilmidzy/kingsac/tree/forever";
         assert_eq!(
             link_checker.check_link(link).await,
@@ -159,7 +162,7 @@ mod tests {
 
     #[tokio::test]
     async fn change_repository_name() {
-        let link_checker = LinkChecker::new();
+        let link_checker = LinkChecker::default();
         let link = "https://github.com/reddevilmidzy/test-queensac";
         assert_eq!(
             link_checker.check_link(link).await,
@@ -169,7 +172,7 @@ mod tests {
 
     #[tokio::test]
     async fn check_redirect_url() {
-        let link_checker = LinkChecker::new();
+        let link_checker = LinkChecker::default();
         let link = "https://gluesql.org/docs";
         assert_eq!(
             link_checker.check_link(link).await,
