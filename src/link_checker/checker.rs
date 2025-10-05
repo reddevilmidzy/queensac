@@ -58,7 +58,7 @@ impl LinkChecker {
 
 impl Default for LinkChecker {
     fn default() -> Self {
-        Self::new().expect("failed to create LinckChecker")
+        Self::new().expect("failed to create LinkChecker")
     }
 }
 
