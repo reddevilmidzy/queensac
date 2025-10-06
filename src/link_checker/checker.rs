@@ -327,6 +327,6 @@ mod tests {
         // GitHub URLs should not be detected incorrectly
         assert!(!is_github_url("https://example.com"));
         assert!(!is_github_url("https://example.com/docs"));
-        assert!(!is_github_url("https://notgithub.com"))
+        assert!(!is_github_url("https://notgithub.com"));
     }
 }
