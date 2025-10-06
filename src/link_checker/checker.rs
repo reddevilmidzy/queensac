@@ -33,7 +33,7 @@ impl LinkChecker {
                             return LinkCheckResult::Redirect(redirect_str.to_string());
                         }
                         return LinkCheckResult::Valid;
-                    } else if status.as_u16() == 404 && url.contains("github.com") {
+                    } else if status.as_u16() == 404 && is_github_url(url) {
                         return handle_github_404(url);
                     } else {
                         return LinkCheckResult::Invalid(format!("HTTP status code: {status}"));
@@ -64,6 +64,16 @@ pub enum LinkCheckResult {
     Redirect(String),
     Invalid(String),
     GitHubFileMoved(String),
+}
+
+fn is_github_url(url: &str) -> bool {
+    Url::parse(url)
+        .ok()
+        .and_then(|u| {
+            u.host_str()
+                .map(|h| h == "github.com" || h.ends_with(".github.com"))
+        })
+        .unwrap_or(false)
 }
 
 /// Handles GitHub 404 errors by attempting to find the current file location
@@ -224,5 +234,22 @@ mod tests {
             "https://example.com:8080",
             "https://example.com:8081"
         ));
+    }
+
+    #[test]
+    fn test_is_github_url() {
+        // GitHub URLs should be detected correctly
+        assert!(is_github_url("https://github.com/reddevilmidzy/queensac"));
+        assert!(is_github_url(
+            "https://github.com/reddevilmidzy/queensac/blob/main/src/main.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_not_github_url() {
+        // GitHub URLs should not be detected incorrectly
+        assert!(!is_github_url("https://example.com"));
+        assert!(!is_github_url("https://example.com/docs"));
+        assert!(!is_github_url("https://notgithub.com"))
     }
 }
