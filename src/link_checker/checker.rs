@@ -79,7 +79,7 @@ impl LinkChecker {
                             return LinkCheckResult::Redirect(redirect_str.to_string());
                         }
                         return LinkCheckResult::Valid;
-                    } else if status.as_u16() == 404 && url.contains("github.com") {
+                    } else if status.as_u16() == 404 && is_github_url(url) {
                         return handle_github_404(url);
                     } else {
                         return LinkCheckResult::Invalid(format!("HTTP status code: {status}"));
@@ -124,6 +124,16 @@ pub enum LinkCheckResult {
     GitHubFileMoved(String),
 }
 
+fn is_github_url(url: &str) -> bool {
+    Url::parse(url)
+        .ok()
+        .and_then(|u| {
+            u.host_str()
+                .map(|h| h == "github.com" || h.ends_with(".github.com"))
+        })
+        .unwrap_or(false)
+}
+
 /// Attempts to resolve a GitHub 404 by locating the file's current path in the repository.
 ///
 /// Parses the provided GitHub URL, clones or accesses the repository, and searches for the file's current location.
@@ -136,7 +146,6 @@ pub enum LinkCheckResult {
 ///
 /// - `LinkCheckResult::GitHubFileMoved(new_path)` if the file was found at a new path inside the repository.
 /// - `LinkCheckResult::Invalid(...)` with a descriptive message if the URL is not a valid GitHub URL, the repository could not be accessed or cloned, the file does not exist in the repository, or an error occurred while searching.
-///
 fn handle_github_404(url: &str) -> LinkCheckResult {
     let parsed = match GitHubUrl::parse(url) {
         Some(parsed) => parsed,
@@ -302,5 +311,22 @@ mod tests {
             "https://example.com:8080",
             "https://example.com:8081"
         ));
+    }
+
+    #[test]
+    fn test_is_github_url() {
+        // GitHub URLs should be detected correctly
+        assert!(is_github_url("https://github.com/reddevilmidzy/queensac"));
+        assert!(is_github_url(
+            "https://github.com/reddevilmidzy/queensac/blob/main/src/main.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_not_github_url() {
+        // GitHub URLs should not be detected incorrectly
+        assert!(!is_github_url("https://example.com"));
+        assert!(!is_github_url("https://example.com/docs"));
+        assert!(!is_github_url("https://notgithub.com"));
     }
 }
