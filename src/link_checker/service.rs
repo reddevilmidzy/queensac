@@ -78,6 +78,29 @@ impl LinkCheckCounters {
     }
 }
 
+/// Checks all links referenced in the given repository and returns details for any links that are not valid.
+///
+/// # Parameters
+///
+/// - `repo_url`: The repository URL to scan for links.
+/// - `branch`: Optional branch name to inspect; when `None`, the repository's default branch is used.
+///
+/// # Returns
+///
+/// `Vec<InvalidLinkInfo>` containing information about each link that is not valid (invalid, redirected, or moved). The vector is empty if all links are valid.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// #[tokio::test]
+/// async fn example_check_links() {
+///     let repo = "https://github.com/example/repo".to_string();
+///     let branch = Some("main".to_string());
+///     let invalid = crate::check_links(repo, branch).await.unwrap();
+///     // `invalid` contains any links that failed validation
+///     println!("Found {} invalid links", invalid.len());
+/// }
+/// ```
 #[instrument(level = "info", skip_all, fields(repo_url = %repo_url, branch = ?branch))]
 pub async fn check_links(
     repo_url: String,
