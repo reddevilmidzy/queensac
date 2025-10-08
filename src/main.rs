@@ -48,6 +48,7 @@ fn main() {
 
     // TODO: refactor this to use a more idiomatic way
     rt.block_on(async {
+        // TODO: use repomanager recycle
         let repo_manager = RepoManager::clone_repo(&args.repo, args.branch.as_deref())
             .unwrap_or_else(|e| {
                 error!("Failed to clone repository: {}", e);
@@ -65,9 +66,8 @@ fn main() {
                     return;
                 }
 
-                let github_token = args
-                    .github_token
-                    .unwrap_or_else(|| "queensac-own-token".to_string());
+                let github_token = args.github_token.expect("GitHub token is required");
+
                 let pr_generator = PullRequestGenerator::new(
                     repo_manager,
                     github_token,
