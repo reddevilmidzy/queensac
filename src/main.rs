@@ -66,7 +66,7 @@ fn main() {
                     return;
                 }
 
-                let github_token = args.github_token.expect("GitHub token is required");
+                let github_token = args.github_token.expect("GitHub token is required. Use --github-token <token> to provide authentication.");
 
                 let pr_generator = PullRequestGenerator::new(
                     repo_manager,
