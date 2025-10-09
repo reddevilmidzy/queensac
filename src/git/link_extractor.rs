@@ -46,7 +46,7 @@ pub fn extract_links_from_repo_url(
                 let file_path = if dir.is_empty() {
                     name.to_string()
                 } else {
-                    format!("{dir}/{name}")
+                    format!("{dir}/{name}").replace("//", "/")
                 };
 
                 if let Ok(blob) = entry.to_object(repo_manager.get_repo())
@@ -222,6 +222,25 @@ mod tests {
                 link.url,
                 link.file_path,
                 link.line_number
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn test_file_paths_no_double_slashes() -> Result<(), Box<dyn std::error::Error>> {
+        let result = extract_links_from_repo_url(TEST_REPO_URL, None)?;
+
+        assert!(!result.is_empty(), "No links found in the repository");
+
+        // Verify that no file paths contain double slashes
+        for link in &result {
+            assert!(
+                !link.file_path.contains("//"),
+                "File path '{}' contains double slashes",
+                link.file_path
             );
         }
 
