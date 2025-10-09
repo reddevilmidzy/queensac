@@ -279,15 +279,9 @@ impl PullRequestGenerator {
 
     /// Gets the owner and repository name from the repository path.
     fn get_repo_owner_and_name(&self) -> Result<(String, String), PrError> {
-        let repo_path = self.repo_manager.get_repo_path();
-        let path_components: Vec<&str> = repo_path.to_str().unwrap().split('/').collect();
-
-        if path_components.len() < 2 {
-            return Err(PrError::Config("Invalid repository path".to_string()));
-        }
-
-        let owner = path_components[path_components.len() - 2];
-        let repo = path_components[path_components.len() - 1];
+        let github_url = self.repo_manager.get_github_url();
+        let owner = github_url.owner();
+        let repo = github_url.repo();
 
         Ok((owner.to_string(), repo.to_string()))
     }
@@ -316,7 +310,7 @@ This pull request was automatically generated to fix broken links in the reposit
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TempDirGuard;
+    use crate::{GitHubUrl, TempDirGuard};
     use std::env;
 
     async fn create_test_pr_generator() -> PullRequestGenerator {
@@ -372,8 +366,13 @@ mod tests {
         )
         .unwrap();
 
-        let repo_manager =
-            RepoManager::clone_repo(&repo_path.to_str().unwrap(), Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url).unwrap();
 
         (temp_dir_guard, repo_manager)
     }

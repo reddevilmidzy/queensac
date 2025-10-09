@@ -89,10 +89,10 @@ fn find_link_in_content(content: &str, file_path: String) -> HashSet<LinkInfo> {
 
 #[cfg(test)]
 mod tests {
+    use crate::GitHubUrl;
+
     use super::*;
     use serial_test::serial;
-
-    static TEST_REPO_URL: &str = "https://github.com/reddevilmidzy/kingsac";
 
     #[test]
     fn test_find_link_in_content_duplicates() {
@@ -181,7 +181,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_branch_found() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager);
 
         assert!(result.is_ok(), "Expected branch to be found");
@@ -191,7 +197,13 @@ mod tests {
     #[serial]
     fn test_branch_not_found() {
         let non_existent_branch = "non-existent-branch";
-        let result = RepoManager::clone_repo(TEST_REPO_URL, Some(non_existent_branch));
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some(non_existent_branch.to_string()),
+            None,
+        );
+        let result = RepoManager::new(&github_url);
 
         assert!(result.is_err(), "Expected error for non-existent branch");
         if let Err(e) = result {
@@ -205,7 +217,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            None,
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");
@@ -227,7 +245,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_file_paths_no_double_slashes() -> Result<(), Box<dyn std::error::Error>> {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            None,
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");

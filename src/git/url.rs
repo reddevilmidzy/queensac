@@ -1,7 +1,7 @@
 use regex::Regex;
 
 /// Represents a parsed GitHub URL with its components
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GitHubUrl {
     /// The owner/organization name from the GitHub URL
     owner: String,
@@ -14,6 +14,28 @@ pub struct GitHubUrl {
 }
 
 impl GitHubUrl {
+    /// Creates a new GitHubUrl struct
+    ///
+    /// # Arguments
+    /// * `owner` - The owner/organization name from the GitHub URL
+    /// * `repo` - The repository name from the GitHub URL
+    /// * `branch` - The branch name if specified in the URL (e.g. master, main)
+    /// * `file_path` - The file path within the repository if specified in the URL
+    ///
+    pub fn new(
+        owner: String,
+        repo: String,
+        branch: Option<String>,
+        file_path: Option<String>,
+    ) -> Self {
+        Self {
+            owner,
+            repo,
+            branch,
+            file_path,
+        }
+    }
+
     /// Parses a GitHub URL string into a GitHubUrl struct
     ///
     /// # Arguments

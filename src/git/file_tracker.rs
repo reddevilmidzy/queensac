@@ -110,14 +110,19 @@ pub fn file_exists_in_repo(repo: &Repository, file_path: &str) -> Result<bool, g
 
 #[cfg(test)]
 mod tests {
-    use crate::RepoManager;
+    use crate::{GitHubUrl, RepoManager};
 
     use super::*;
 
     #[test]
     fn test_track_file_rename_in_commit() -> Result<(), git2::Error> {
-        let repo_manager =
-            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", Some("main"))?;
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url)?;
         let commit = find_last_commit_id("main.rs", &repo_manager.get_repo())?;
         // see https://github.com/reddevilmidzy/kingsac/commit/2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7
         assert_eq!(
@@ -134,8 +139,13 @@ mod tests {
 
     #[test]
     fn test_file_exists_in_repo() -> Result<(), git2::Error> {
-        let repo_manager =
-            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", None)?;
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            None,
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url)?;
 
         assert!(file_exists_in_repo(repo_manager.get_repo(), "README.md")?);
 
@@ -157,8 +167,13 @@ mod tests {
     /// 2. First moved to: foo/test_for_multiple_moves.rs
     /// 3. Finally moved to: bar/test_for_multiple_moves.rs
     fn test_track_file_rename_in_commit_with_multiple_moves() -> Result<(), git2::Error> {
-        let repo_manager =
-            RepoManager::clone_repo("https://github.com/reddevilmidzy/kingsac", None)?;
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            None,
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url)?;
 
         // 1. Find the commit where test_for_multiple_moves.rs was moved to foo/test_for_multiple_moves.rs
         let commit = find_last_commit_id("test_for_multiple_moves.rs", &repo_manager.get_repo())?;

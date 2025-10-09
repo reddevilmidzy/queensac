@@ -93,7 +93,8 @@ impl LinkCheckCounters {
 /// ```rust,no_run
 /// #[tokio::test]
 /// async fn example_check_links() {
-///     let repo_manager = RepoManager::clone_repo("https://github.com/example/repo", None).unwrap();
+///     let github_url = GitHubUrl::new("reddevilmidzy".to_string(), "kingsac".to_string(), Some("main".to_string()), None);
+///     let repo_manager = RepoManager::from_github_url(&github_url).unwrap();
 ///     let invalid = check_links(&repo_manager).await.unwrap();
 ///     // `invalid` contains any links that failed validation
 ///     println!("Found {} invalid links", invalid.len());
@@ -101,7 +102,7 @@ impl LinkCheckCounters {
 /// ```
 #[instrument(level = "info", skip_all)]
 pub async fn check_links(repo_manager: &RepoManager) -> Result<Vec<InvalidLinkInfo>, String> {
-    let result = git::extract_links_from_repo(&repo_manager);
+    let result = git::extract_links_from_repo(repo_manager);
     let links = match result {
         Ok(links) => {
             info!("Found {} links to check", links.len());
@@ -177,13 +178,19 @@ pub async fn check_links(repo_manager: &RepoManager) -> Result<Vec<InvalidLinkIn
 
 #[cfg(test)]
 mod tests {
+    use crate::GitHubUrl;
+
     use super::*;
 
     #[tokio::test]
     async fn test_stream_link_checks_runs() {
-        let repo_url = "https://github.com/reddevilmidzy/kingsac".to_string();
-        let branch = Some("main".to_string());
-        let repo_manager = RepoManager::clone_repo(&repo_url, branch.as_deref()).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::new(&github_url).unwrap();
         let invalid_links = check_links(&repo_manager).await;
         assert!(invalid_links.is_ok());
         let invalid_links = invalid_links.unwrap();
