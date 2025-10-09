@@ -1,5 +1,8 @@
 use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
-use git2::{BranchType, Oid, Repository, Signature, build::CheckoutBuilder};
+use git2::{
+    BranchType, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature,
+    build::CheckoutBuilder,
+};
 use std::{env, fs, path::PathBuf, time};
 use tracing::{error, info};
 
@@ -240,17 +243,31 @@ impl RepoManager {
     }
 
     /// Pushes the current branch to the remote repository
-    pub async fn push(&self, remote_name: &str, branch_name: &str) -> Result<(), git2::Error> {
+    pub async fn push(
+        &self,
+        remote_name: &str,
+        branch_name: &str,
+        github_token: &str,
+    ) -> Result<(), git2::Error> {
         info!("Pushing branch {} to remote {}", branch_name, remote_name);
 
         let mut remote = self.repo.find_remote(remote_name)?;
+
+        // Set up authentication callbacks
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks
+            .credentials(move |_, _, _| Cred::userpass_plaintext("x-access-token", github_token));
+
+        // Create push options with authentication
+        let mut push_options = PushOptions::new();
+        push_options.remote_callbacks(callbacks);
 
         // Get the current branch reference
         let branch = self.repo.find_branch(branch_name, BranchType::Local)?;
         let reference = branch.get();
 
-        // Push the branch
-        remote.push(&[reference.name().unwrap()], None)?;
+        // Push the branch with authentication
+        remote.push(&[reference.name().unwrap()], Some(&mut push_options))?;
 
         info!(
             "Successfully pushed branch {} to remote {}",

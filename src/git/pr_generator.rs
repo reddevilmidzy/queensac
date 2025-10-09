@@ -34,6 +34,7 @@ pub struct PullRequestGenerator {
     feature_branch: String,
     author_name: String,
     author_email: String,
+    github_token: String,
     octocrab: Octocrab,
 }
 
@@ -54,7 +55,7 @@ impl PullRequestGenerator {
         feature_branch: String,
     ) -> Self {
         let octocrab = Octocrab::builder()
-            .personal_token(github_token)
+            .personal_token(github_token.as_str())
             .build()
             .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
         let author_name = "queensac".to_string();
@@ -66,6 +67,7 @@ impl PullRequestGenerator {
             feature_branch,
             author_name,
             author_email,
+            github_token,
             octocrab,
         }
     }
@@ -240,7 +242,7 @@ impl PullRequestGenerator {
         info!("Pushing branch {} to remote", self.feature_branch);
 
         self.repo_manager
-            .push("origin", &self.feature_branch)
+            .push("origin", &self.feature_branch, &self.github_token)
             .await?;
 
         info!("Successfully pushed branch to remote");

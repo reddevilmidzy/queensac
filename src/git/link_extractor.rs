@@ -31,12 +31,9 @@ impl std::hash::Hash for LinkInfo {
     }
 }
 
-pub fn extract_links_from_repo_url(
-    repo_url: &str,
-    branch: Option<String>,
+pub fn extract_links_from_repo(
+    repo_manager: &RepoManager,
 ) -> Result<HashSet<LinkInfo>, git2::Error> {
-    let repo_manager = RepoManager::clone_repo(repo_url, branch.as_deref())?;
-
     let mut all_links = HashSet::new();
     if let Ok(head) = repo_manager.get_repo().head()
         && let Ok(tree) = head.peel_to_tree()
@@ -184,8 +181,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_branch_found() {
-        let branch = "main";
-        let result = extract_links_from_repo_url(TEST_REPO_URL, Some(branch.to_string()));
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let result = extract_links_from_repo(&repo_manager);
 
         assert!(result.is_ok(), "Expected branch to be found");
     }
@@ -194,9 +191,7 @@ mod tests {
     #[serial]
     fn test_branch_not_found() {
         let non_existent_branch = "non-existent-branch";
-
-        let result =
-            extract_links_from_repo_url(TEST_REPO_URL, Some(non_existent_branch.to_string()));
+        let result = RepoManager::clone_repo(TEST_REPO_URL, Some(non_existent_branch));
 
         assert!(result.is_err(), "Expected error for non-existent branch");
         if let Err(e) = result {
@@ -210,7 +205,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_extract_links_from_repo_url() -> Result<(), Box<dyn std::error::Error>> {
-        let result = extract_links_from_repo_url(TEST_REPO_URL, None)?;
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+        let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");
 
@@ -231,7 +227,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_file_paths_no_double_slashes() -> Result<(), Box<dyn std::error::Error>> {
-        let result = extract_links_from_repo_url(TEST_REPO_URL, None)?;
+        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+        let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");
 
