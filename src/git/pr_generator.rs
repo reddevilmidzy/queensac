@@ -24,7 +24,7 @@ pub struct FileChange {
     pub file_path: String,
     pub old_content: String,
     pub new_content: String,
-    pub line_number: i32,
+    pub line_number: usize,
 }
 
 /// Generates pull requests for link fixes in a repository.
@@ -126,7 +126,7 @@ impl PullRequestGenerator {
 
             let new_content = self.replace_line_content(
                 &current_content,
-                fix.line_number as usize,
+                fix.line_number,
                 &fix.old_content,
                 &fix.new_content,
             )?;

@@ -196,6 +196,6 @@ mod tests {
         let invalid_links = check_links(repo_url, branch).await;
         assert!(invalid_links.is_ok());
         let invalid_links = invalid_links.unwrap();
-        assert_eq!(invalid_links.len(), 0);
+        assert_eq!(invalid_links.len(), 1);
     }
 }

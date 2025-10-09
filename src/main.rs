@@ -1,6 +1,8 @@
 use clap::Parser;
-use queensac::{KoreanTime, check_links};
-use tracing::{Level, error};
+use queensac::{
+    FileChange, InvalidLinkInfo, KoreanTime, PullRequestGenerator, RepoManager, check_links,
+};
+use tracing::{Level, error, info};
 
 #[derive(Debug, Parser)]
 #[command(name = "queensac", about = "Link checker for a GitHub repo")]
@@ -16,6 +18,11 @@ struct Args {
         help = "Dry run mode"
     )]
     dry_run: bool,
+    #[arg(
+        long = "github-token",
+        help = "GitHub API token for creating pull request"
+    )]
+    github_token: Option<String>,
 }
 
 fn main() {
@@ -39,16 +46,66 @@ fn main() {
         .build()
         .expect("Failed to create Tokio runtime");
 
+    // TODO: refactor this to use a more idiomatic way
     rt.block_on(async {
-        if args.dry_run {
-            let result = check_links(args.repo, args.branch).await;
-            if let Ok(_invalid_links) = result {
-                if !args.dry_run {
-                    todo!("Create pull request");
+        // TODO: use repomanager recycle
+        let repo_manager = RepoManager::clone_repo(&args.repo, args.branch.as_deref())
+            .unwrap_or_else(|e| {
+                error!("Failed to clone repository: {}", e);
+                std::process::exit(1);
+            });
+        let result = check_links(args.repo, args.branch).await;
+        match result {
+            Ok(invalid_links) => {
+                if invalid_links.is_empty() {
+                    info!("All links are valid");
+                    return;
                 }
-            } else if let Err(e) = result {
-                error!("Failed to stream link checks: {}", e);
+                if args.dry_run {
+                    info!("Dry run mode, skipping pull request creation");
+                    return;
+                }
+
+                let github_token = args.github_token.expect("GitHub token is required. Use --github-token <token> to provide authentication.");
+
+                let pr_generator = PullRequestGenerator::new(
+                    repo_manager,
+                    github_token,
+                    "main".to_string(),
+                    "queensac".to_string(),
+                );
+                let fixes = find_valid_links(invalid_links).await;
+                let pr_url = pr_generator.create_fix_pr(fixes).await;
+                match pr_url {
+                    Ok(url) => {
+                        info!("Successfully created PR: {}", url);
+                    }
+                    Err(e) => {
+                        error!("Failed to create PR: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to check links: {}", e);
+                std::process::exit(1);
             }
         }
     });
+}
+
+async fn find_valid_links(invalid_links: Vec<InvalidLinkInfo>) -> Vec<FileChange> {
+    let mut fixes = Vec::new();
+
+    // TODO: Replace with actual valid link
+    for invalid_link in invalid_links {
+        fixes.push(FileChange {
+            file_path: invalid_link.file_path,
+            old_content: invalid_link.url,
+            new_content: "https://correct_url.com".to_string(),
+            line_number: invalid_link.line_number,
+        });
+    }
+
+    fixes
 }
