@@ -94,7 +94,7 @@ impl LinkCheckCounters {
 /// #[tokio::test]
 /// async fn example_check_links() {
 ///     let github_url = GitHubUrl::new("reddevilmidzy".to_string(), "kingsac".to_string(), Some("main".to_string()), None);
-///     let repo_manager = RepoManager::from_github_url(&github_url).unwrap();
+///     let repo_manager = RepoManager::from(&github_url).unwrap();
 ///     let invalid = check_links(&repo_manager).await.unwrap();
 ///     // `invalid` contains any links that failed validation
 ///     println!("Found {} invalid links", invalid.len());
