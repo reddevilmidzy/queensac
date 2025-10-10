@@ -310,80 +310,31 @@ This pull request was automatically generated to fix broken links in the reposit
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GitHubUrl, TempDirGuard};
-    use std::env;
+    use crate::GitHubUrl;
 
-    async fn create_test_pr_generator() -> PullRequestGenerator {
-        let (_temp_guard, repo_manager) = create_test_repo().await;
-        PullRequestGenerator::new(
-            repo_manager,
-            "test_token".to_string(),
-            "main".to_string(),
-            "fix-links".to_string(),
-        )
-    }
-
-    async fn create_test_repo() -> (TempDirGuard, RepoManager) {
-        let temp_dir = env::temp_dir().join(format!(
-            "test_repo_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-
-        let temp_dir_guard = TempDirGuard::new(temp_dir.clone()).unwrap();
-        let repo_path = temp_dir_guard.get_path();
-
-        // Initialize a git repository
-        let repo = git2::Repository::init(repo_path).unwrap();
-
-        // Create a test file
-        let test_file = repo_path.join("test.md");
-        tokio::fs::write(
-            &test_file,
-            "# Test\n\nThis is a [broken link](https://broken-url.com)\n",
-        )
-        .await
-        .unwrap();
-
-        // Add and commit the file
-        let mut index = repo.index().unwrap();
-        index.add_path(std::path::Path::new("test.md")).unwrap();
-        index.write().unwrap();
-
-        let signature = git2::Signature::now("queensac", "noreply@queens.ac").unwrap();
-        let tree_id = index.write_tree().unwrap();
-        let tree = repo.find_tree(tree_id).unwrap();
-
-        repo.commit(
-            Some("refs/heads/main"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &tree,
-            &[],
-        )
-        .unwrap();
-
-        let github_url = GitHubUrl::new(
-            "reddevilmidzy".to_string(),
-            "kingsac".to_string(),
-            Some("main".to_string()),
-            None,
-        );
-        let repo_manager = RepoManager::from(&github_url).unwrap();
-
-        (temp_dir_guard, repo_manager)
+    impl PullRequestGenerator {
+        #[cfg(test)]
+        fn new_for_test() -> Self {
+            let github_url = GitHubUrl::new(
+                "reddevilmidzy".to_string(),
+                "kingsac".to_string(),
+                Some("main".to_string()),
+                None,
+            );
+            let repo_manager = RepoManager::from(&github_url).unwrap();
+            let github_token = "queensac_test_token".to_string();
+            let base_branch = "main".to_string();
+            let feature_branch = "queensac-test".to_string();
+            Self::new(repo_manager, github_token, base_branch, feature_branch)
+        }
     }
 
     #[tokio::test]
     async fn test_replace_line_content() {
-        let generator = create_test_pr_generator();
+        let generator = PullRequestGenerator::new_for_test();
 
         let content = "Line 1\nLine 2 with https://old-url.com\nLine 3";
         let new_content = generator
-            .await
             .replace_line_content(content, 2, "https://old-url.com", "https://new-url.com")
             .unwrap();
 
@@ -393,7 +344,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_commit_message() {
-        let generator = create_test_pr_generator();
+        let generator = PullRequestGenerator::new_for_test();
 
         let changes = vec![
             FileChange {
@@ -410,7 +361,7 @@ mod tests {
             },
         ];
 
-        let message = generator.await.create_commit_message(&changes);
+        let message = generator.create_commit_message(&changes);
 
         assert!(message.contains("fix: Update broken links"));
         assert!(message.contains("test.md:3"));
@@ -421,7 +372,7 @@ mod tests {
     async fn test_create_pull_request_via_api_success() {
         // This test would require mocking octocrab, which is complex
         // For now, we'll test the method that extracts owner and repo
-        let generator = create_test_pr_generator().await;
+        let generator = PullRequestGenerator::new_for_test();
 
         // Test that the method can extract owner and repo from a path
         // This is a simplified test since we can't easily mock octocrab
@@ -431,7 +382,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_pr_description() {
-        let generator = create_test_pr_generator().await;
+        let generator = PullRequestGenerator::new_for_test();
 
         let description = generator.create_pr_description();
 

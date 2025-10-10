@@ -113,8 +113,10 @@ mod tests {
     use crate::{GitHubUrl, RepoManager};
 
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_track_file_rename_in_commit() -> Result<(), git2::Error> {
         let github_url = GitHubUrl::new(
             "reddevilmidzy".to_string(),
@@ -138,6 +140,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_file_exists_in_repo() -> Result<(), git2::Error> {
         let github_url = GitHubUrl::new(
             "reddevilmidzy".to_string(),
@@ -158,6 +161,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     /// This test demonstrates the low-level Git operations for tracking file movements.
     /// It is related to `url::tests::test_find_github_file_new_path` which tests the same
     /// file movement pattern at a higher level using GitHub URLs.
