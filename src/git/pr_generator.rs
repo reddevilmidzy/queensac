@@ -84,7 +84,7 @@ impl PullRequestGenerator {
         self.commit_changes(&changes).await?;
         self.push_to_remote().await?;
 
-        let pr_url = self.create_pull_request_via_api().await?;
+        let pr_url = self.generate_pull_request_via_api().await?;
 
         info!("Successfully created PR: {}", pr_url);
         Ok(pr_url)
@@ -249,8 +249,8 @@ impl PullRequestGenerator {
         Ok(())
     }
 
-    /// Creates a pull request via the GitHub API.
-    pub async fn create_pull_request_via_api(&self) -> Result<String, PrError> {
+    /// Generates a pull request via the GitHub API.
+    pub async fn generate_pull_request_via_api(&self) -> Result<String, PrError> {
         info!("Creating pull request via GitHub API");
 
         let (owner, repo) = self.get_repo_owner_and_name()?;
