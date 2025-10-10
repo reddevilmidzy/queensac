@@ -122,7 +122,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url)?;
+        let repo_manager = RepoManager::from(&github_url)?;
         let commit = find_last_commit_id("main.rs", &repo_manager.get_repo())?;
         // see https://github.com/reddevilmidzy/kingsac/commit/2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7
         assert_eq!(
@@ -145,7 +145,7 @@ mod tests {
             None,
             None,
         );
-        let repo_manager = RepoManager::new(&github_url)?;
+        let repo_manager = RepoManager::from(&github_url)?;
 
         assert!(file_exists_in_repo(repo_manager.get_repo(), "README.md")?);
 
@@ -173,7 +173,7 @@ mod tests {
             None,
             None,
         );
-        let repo_manager = RepoManager::new(&github_url)?;
+        let repo_manager = RepoManager::from(&github_url)?;
 
         // 1. Find the commit where test_for_multiple_moves.rs was moved to foo/test_for_multiple_moves.rs
         let commit = find_last_commit_id("test_for_multiple_moves.rs", &repo_manager.get_repo())?;

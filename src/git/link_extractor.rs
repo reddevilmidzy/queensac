@@ -187,7 +187,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager);
 
         assert!(result.is_ok(), "Expected branch to be found");
@@ -203,7 +203,7 @@ mod tests {
             Some(non_existent_branch.to_string()),
             None,
         );
-        let result = RepoManager::new(&github_url);
+        let result = RepoManager::from(&github_url);
 
         assert!(result.is_err(), "Expected error for non-existent branch");
         if let Err(e) = result {
@@ -223,7 +223,7 @@ mod tests {
             None,
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");
@@ -251,7 +251,7 @@ mod tests {
             None,
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
         let result = extract_links_from_repo(&repo_manager).unwrap();
 
         assert!(!result.is_empty(), "No links found in the repository");

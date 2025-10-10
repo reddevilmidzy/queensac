@@ -53,7 +53,7 @@ fn main() {
             error!("Failed to parse GitHub URL: {}", args.repo);
             std::process::exit(1);
         });
-        let repo_manager = RepoManager::new(&github_url).unwrap_or_else(|e| {
+        let repo_manager = RepoManager::from(&github_url).unwrap_or_else(|e| {
             error!("Failed to clone repository: {}", e);
             std::process::exit(1);
         });

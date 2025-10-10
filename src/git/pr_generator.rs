@@ -372,7 +372,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         (temp_dir_guard, repo_manager)
     }

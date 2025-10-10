@@ -42,6 +42,15 @@ pub struct RepoManager {
 }
 
 impl RepoManager {
+    /// Creates a new `RepoManager` instance from a GitHub URL.
+    pub fn new(url: &GitHubUrl, repo: Repository, _temp_dir_guard: TempDirGuard) -> Self {
+        Self {
+            url: url.clone(),
+            repo,
+            _temp_dir_guard,
+        }
+    }
+
     /// Clones a Git repository from a GitHub URL.
     ///
     /// # Arguments
@@ -49,7 +58,7 @@ impl RepoManager {
     ///
     /// # Returns
     /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
-    pub fn new(url: &GitHubUrl) -> Result<Self, git2::Error> {
+    pub fn from(url: &GitHubUrl) -> Result<Self, git2::Error> {
         let temp_dir = env::temp_dir().join(format!(
             "github_repo_temp/{}/{}_{}",
             url.owner(),
@@ -325,7 +334,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
@@ -340,7 +349,7 @@ mod tests {
             None,
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
@@ -355,7 +364,7 @@ mod tests {
             Some("non-existent-branch".to_string()),
             None,
         );
-        let result = RepoManager::new(&github_url);
+        let result = RepoManager::from(&github_url);
 
         assert!(
             result.is_err(),
@@ -378,7 +387,7 @@ mod tests {
             Some("maout".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/maout");
@@ -396,7 +405,7 @@ mod tests {
         )
         .unwrap();
 
-        let repo_manager = RepoManager::new(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
 
         assert_eq!(
             repo_manager.find_current_location(&url).unwrap(),
@@ -415,7 +424,7 @@ mod tests {
             GitHubUrl::parse("https://github.com/reddevilmidzy/kingsac/blob/main/non_existent.txt")
                 .unwrap();
 
-        let repo_manager = RepoManager::new(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
         assert_eq!(repo_manager.find_current_location(&url).unwrap(), None);
 
         // Test case 2: File that was deleted
@@ -424,7 +433,7 @@ mod tests {
         )
         .unwrap();
 
-        let repo_manager = RepoManager::new(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
         assert_eq!(repo_manager.find_current_location(&url).unwrap(), None);
     }
 
@@ -436,7 +445,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         // Create initial commit if needed
         if repo_manager.has_uncommitted_changes().unwrap() {
@@ -472,7 +481,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         // Create a test file
         let test_file = repo_manager.get_repo_path().join("test_file.txt");
@@ -497,7 +506,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(!repo_manager.has_uncommitted_changes().unwrap());
 

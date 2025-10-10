@@ -190,7 +190,7 @@ mod tests {
             Some("main".to_string()),
             None,
         );
-        let repo_manager = RepoManager::new(&github_url).unwrap();
+        let repo_manager = RepoManager::from(&github_url).unwrap();
         let invalid_links = check_links(&repo_manager).await;
         assert!(invalid_links.is_ok());
         let invalid_links = invalid_links.unwrap();
