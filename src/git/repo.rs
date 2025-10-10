@@ -1,5 +1,8 @@
 use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
-use git2::{BranchType, Oid, Repository, Signature, build::CheckoutBuilder};
+use git2::{
+    BranchType, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature,
+    build::CheckoutBuilder,
+};
 use std::{env, fs, path::PathBuf, time};
 use tracing::{error, info};
 
@@ -33,11 +36,21 @@ impl Drop for TempDirGuard {
 
 /// Manages a Git repository with automatic cleanup of temporary files.
 pub struct RepoManager {
+    url: GitHubUrl,
     repo: Repository,
     _temp_dir_guard: TempDirGuard,
 }
 
 impl RepoManager {
+    /// Creates a new `RepoManager` instance from a GitHub URL.
+    pub fn new(url: &GitHubUrl, repo: Repository, _temp_dir_guard: TempDirGuard) -> Self {
+        Self {
+            url: url.clone(),
+            repo,
+            _temp_dir_guard,
+        }
+    }
+
     /// Clones a Git repository from a GitHub URL.
     ///
     /// # Arguments
@@ -45,27 +58,11 @@ impl RepoManager {
     ///
     /// # Returns
     /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
-    pub fn from_github_url(url: &GitHubUrl) -> Result<Self, git2::Error> {
-        Self::clone_repo(&url.clone_url(), url.branch())
-    }
-
-    /// Clones a Git repository, optionally cloning only a specific branch.
-    ///
-    /// When a branch name is provided, only that specific branch will be cloned,
-    /// which is more efficient than cloning the entire repository and then checking out.
-    /// If no branch is specified, the default branch will be cloned.
-    ///
-    /// # Arguments
-    /// * `repo_url` - The URL of the repository to clone
-    /// * `branch` - Optional branch name to clone. If provided, only this branch will be cloned.
-    ///
-    /// # Returns
-    /// A `RepoManager` instance that will automatically clean up the cloned repository when dropped.
-    pub fn clone_repo(repo_url: &str, branch: Option<&str>) -> Result<Self, git2::Error> {
+    pub fn from(url: &GitHubUrl) -> Result<Self, git2::Error> {
         let temp_dir = env::temp_dir().join(format!(
             "github_repo_temp/{}/{}_{}",
-            repo_url.split('/').nth(3).unwrap_or("unknown"),
-            repo_url.split('/').nth(4).unwrap_or("unknown"),
+            url.owner(),
+            url.repo(),
             time::SystemTime::now()
                 .duration_since(time::UNIX_EPOCH)
                 .unwrap()
@@ -78,13 +75,14 @@ impl RepoManager {
 
         let mut builder = git2::build::RepoBuilder::new();
 
-        if let Some(branch_name) = branch {
+        if let Some(branch_name) = url.branch() {
             builder.branch(branch_name);
         }
 
-        let repo = builder.clone(repo_url, &temp_dir)?;
+        let repo = builder.clone(url.clone_url().as_str(), &temp_dir)?;
 
         Ok(Self {
+            url: url.clone(),
             repo,
             _temp_dir_guard,
         })
@@ -240,17 +238,31 @@ impl RepoManager {
     }
 
     /// Pushes the current branch to the remote repository
-    pub async fn push(&self, remote_name: &str, branch_name: &str) -> Result<(), git2::Error> {
+    pub async fn push(
+        &self,
+        remote_name: &str,
+        branch_name: &str,
+        github_token: &str,
+    ) -> Result<(), git2::Error> {
         info!("Pushing branch {} to remote {}", branch_name, remote_name);
 
         let mut remote = self.repo.find_remote(remote_name)?;
+
+        // Set up authentication callbacks
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks
+            .credentials(move |_, _, _| Cred::userpass_plaintext("x-access-token", github_token));
+
+        // Create push options with authentication
+        let mut push_options = PushOptions::new();
+        push_options.remote_callbacks(callbacks);
 
         // Get the current branch reference
         let branch = self.repo.find_branch(branch_name, BranchType::Local)?;
         let reference = branch.get();
 
-        // Push the branch
-        remote.push(&[reference.name().unwrap()], None)?;
+        // Push the branch with authentication
+        remote.push(&[reference.name().unwrap()], Some(&mut push_options))?;
 
         info!(
             "Successfully pushed branch {} to remote {}",
@@ -300,6 +312,11 @@ impl RepoManager {
     pub fn get_repo_path(&self) -> PathBuf {
         self.repo.path().parent().unwrap().to_path_buf()
     }
+
+    /// Gets the GitHub URL
+    pub fn get_github_url(&self) -> &GitHubUrl {
+        &self.url
+    }
 }
 
 #[cfg(test)]
@@ -308,12 +325,16 @@ mod tests {
     use serial_test::serial;
     use std::fs;
 
-    static TEST_REPO_URL: &str = "https://github.com/reddevilmidzy/kingsac";
-
     #[test]
     #[serial]
     fn test_checkout_branch_with_valid_branch() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
@@ -322,7 +343,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_checkout_branch_with_default_branch() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, None).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            None,
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/main");
@@ -331,7 +358,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_checkout_branch_with_invalid_branch() {
-        let result = RepoManager::clone_repo(TEST_REPO_URL, Some("non-existent-branch"));
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("non-existent-branch".to_string()),
+            None,
+        );
+        let result = RepoManager::from(&github_url);
 
         assert!(
             result.is_err(),
@@ -348,7 +381,13 @@ mod tests {
     #[test]
     #[serial]
     fn test_clone_with_not_default_branch() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("maout")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("maout".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(repo_manager.get_repo().head().is_ok());
         assert!(repo_manager.get_repo().head().unwrap().name().unwrap() == "refs/heads/maout");
@@ -366,7 +405,7 @@ mod tests {
         )
         .unwrap();
 
-        let repo_manager = RepoManager::from_github_url(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
 
         assert_eq!(
             repo_manager.find_current_location(&url).unwrap(),
@@ -385,7 +424,7 @@ mod tests {
             GitHubUrl::parse("https://github.com/reddevilmidzy/kingsac/blob/main/non_existent.txt")
                 .unwrap();
 
-        let repo_manager = RepoManager::from_github_url(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
         assert_eq!(repo_manager.find_current_location(&url).unwrap(), None);
 
         // Test case 2: File that was deleted
@@ -394,13 +433,19 @@ mod tests {
         )
         .unwrap();
 
-        let repo_manager = RepoManager::from_github_url(&url).unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
         assert_eq!(repo_manager.find_current_location(&url).unwrap(), None);
     }
 
     #[tokio::test]
     async fn test_create_and_checkout_branch() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         // Create initial commit if needed
         if repo_manager.has_uncommitted_changes().unwrap() {
@@ -430,7 +475,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_and_commit() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         // Create a test file
         let test_file = repo_manager.get_repo_path().join("test_file.txt");
@@ -449,7 +500,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_has_uncommitted_changes() {
-        let repo_manager = RepoManager::clone_repo(TEST_REPO_URL, Some("main")).unwrap();
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
 
         assert!(!repo_manager.has_uncommitted_changes().unwrap());
 

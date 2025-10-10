@@ -1,6 +1,6 @@
 use tracing::{error, info, instrument};
 
-use crate::{LinkCheckResult, LinkChecker, git};
+use crate::{LinkCheckResult, LinkChecker, RepoManager, git};
 
 #[derive(Debug)]
 pub struct LinkCheckEvent {
@@ -82,36 +82,27 @@ impl LinkCheckCounters {
 ///
 /// # Parameters
 ///
-/// - `repo_url`: The repository URL to scan for links.
-/// - `branch`: Optional branch name to inspect; when `None`, the repository's default branch is used.
+/// - `repo_manager`: A reference to the RepoManager instance containing the cloned repository to scan for links.
 ///
 /// # Returns
 ///
-/// `Vec<InvalidLinkInfo>` containing information about each link that is not valid (invalid, redirected, or moved). The vector is empty if all links are valid.
+/// `Result<Vec<InvalidLinkInfo>, String>` containing information about each link that is not valid (invalid, redirected, or moved). The vector is empty if all links are valid. Returns an error if there was a problem processing the repository.
 ///
 /// # Examples
 ///
 /// ```rust,no_run
 /// #[tokio::test]
 /// async fn example_check_links() {
-///     let repo = "https://github.com/example/repo".to_string();
-///     let branch = Some("main".to_string());
-///     let invalid = crate::check_links(repo, branch).await.unwrap();
+///     let github_url = GitHubUrl::new("reddevilmidzy".to_string(), "kingsac".to_string(), Some("main".to_string()), None);
+///     let repo_manager = RepoManager::from(&github_url).unwrap();
+///     let invalid = check_links(&repo_manager).await.unwrap();
 ///     // `invalid` contains any links that failed validation
 ///     println!("Found {} invalid links", invalid.len());
 /// }
 /// ```
-#[instrument(level = "info", skip_all, fields(repo_url = %repo_url, branch = ?branch))]
-pub async fn check_links(
-    repo_url: String,
-    branch: Option<String>,
-) -> Result<Vec<InvalidLinkInfo>, String> {
-    info!(
-        "Starting link checks for repository: {} (branch: {:?})",
-        repo_url, branch
-    );
-
-    let result = git::extract_links_from_repo_url(&repo_url, branch.clone());
+#[instrument(level = "info", skip_all)]
+pub async fn check_links(repo_manager: &RepoManager) -> Result<Vec<InvalidLinkInfo>, String> {
+    let result = git::extract_links_from_repo(repo_manager);
     let links = match result {
         Ok(links) => {
             info!("Found {} links to check", links.len());
@@ -187,13 +178,20 @@ pub async fn check_links(
 
 #[cfg(test)]
 mod tests {
+    use crate::GitHubUrl;
+
     use super::*;
 
     #[tokio::test]
     async fn test_stream_link_checks_runs() {
-        let repo_url = "https://github.com/reddevilmidzy/kingsac".to_string();
-        let branch = Some("main".to_string());
-        let invalid_links = check_links(repo_url, branch).await;
+        let github_url = GitHubUrl::new(
+            "reddevilmidzy".to_string(),
+            "kingsac".to_string(),
+            Some("main".to_string()),
+            None,
+        );
+        let repo_manager = RepoManager::from(&github_url).unwrap();
+        let invalid_links = check_links(&repo_manager).await;
         assert!(invalid_links.is_ok());
         let invalid_links = invalid_links.unwrap();
         assert_eq!(invalid_links.len(), 1);

@@ -154,7 +154,7 @@ fn handle_github_404(url: &str) -> LinkCheckResult {
         }
     };
 
-    let repo_manager = match RepoManager::from_github_url(&parsed) {
+    let repo_manager = match RepoManager::from(&parsed) {
         Ok(repo_manager) => repo_manager,
         Err(e) => {
             return LinkCheckResult::Invalid(format!("Error cloning repository: {e}"));

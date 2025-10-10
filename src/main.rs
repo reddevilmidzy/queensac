@@ -1,6 +1,7 @@
 use clap::Parser;
 use queensac::{
-    FileChange, InvalidLinkInfo, KoreanTime, PullRequestGenerator, RepoManager, check_links,
+    FileChange, GitHubUrl, InvalidLinkInfo, KoreanTime, PullRequestGenerator, RepoManager,
+    check_links,
 };
 use tracing::{Level, error, info};
 
@@ -48,13 +49,15 @@ fn main() {
 
     // TODO: refactor this to use a more idiomatic way
     rt.block_on(async {
-        // TODO: use repomanager recycle
-        let repo_manager = RepoManager::clone_repo(&args.repo, args.branch.as_deref())
-            .unwrap_or_else(|e| {
-                error!("Failed to clone repository: {}", e);
-                std::process::exit(1);
-            });
-        let result = check_links(args.repo, args.branch).await;
+        let github_url = GitHubUrl::parse(&args.repo).unwrap_or_else(|| {
+            error!("Failed to parse GitHub URL: {}", args.repo);
+            std::process::exit(1);
+        });
+        let repo_manager = RepoManager::from(&github_url).unwrap_or_else(|e| {
+            error!("Failed to clone repository: {}", e);
+            std::process::exit(1);
+        });
+        let result = check_links(&repo_manager).await;
         match result {
             Ok(invalid_links) => {
                 if invalid_links.is_empty() {
