@@ -1,7 +1,7 @@
 use crate::RepoManager;
 
 use octocrab::Octocrab;
-use std::path::PathBuf;
+use std::{path::PathBuf, time::SystemTime};
 use thiserror::Error;
 use tracing::{error, info};
 
@@ -31,9 +31,6 @@ pub struct FileChange {
 pub struct PullRequestGenerator {
     repo_manager: RepoManager,
     base_branch: String,
-    feature_branch: String,
-    author_name: String,
-    author_email: String,
     github_token: String,
     octocrab: Octocrab,
 }
@@ -45,28 +42,15 @@ impl PullRequestGenerator {
     /// * `repo_manager` - The repository manager instance
     /// * `github_token` - GitHub API token
     /// * `base_branch` - The base branch for the pull request
-    /// * `feature_branch` - The feature branch to create
-    /// * `author_name` - The commit author name
-    /// * `author_email` - The commit author email
-    pub fn new(
-        repo_manager: RepoManager,
-        github_token: String,
-        base_branch: String,
-        feature_branch: String,
-    ) -> Self {
+    pub fn new(repo_manager: RepoManager, github_token: String, base_branch: String) -> Self {
         let octocrab = Octocrab::builder()
             .personal_token(github_token.as_str())
             .build()
             .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
-        let author_name = "queensac".to_string();
-        let author_email = "noreply@queens.ac".to_string();
 
         Self {
             repo_manager,
             base_branch,
-            feature_branch,
-            author_name,
-            author_email,
             github_token,
             octocrab,
         }
@@ -77,32 +61,27 @@ impl PullRequestGenerator {
     /// # Arguments
     /// * `fixes` - The list of file changes to apply
     pub async fn create_fix_pr(&self, fixes: Vec<FileChange>) -> Result<String, PrError> {
-        self.create_feature_branch().await?;
+        let branch_name = generate_branch_name();
+        self.create_branch(&branch_name).await?;
 
         let changes = self.apply_fixes(fixes).await?;
 
         self.commit_changes(&changes).await?;
-        self.push_to_remote().await?;
+        self.push_to_remote(branch_name.as_str()).await?;
 
-        let pr_url = self.generate_pull_request_via_api().await?;
+        let pr_url = self
+            .generate_pull_request_via_api(branch_name.as_str())
+            .await?;
 
         info!("Successfully created PR: {}", pr_url);
         Ok(pr_url)
     }
 
     /// Creates a new feature branch from the current branch.
-    async fn create_feature_branch(&self) -> Result<(), PrError> {
-        self.repo_manager
-            .create_branch(&self.feature_branch)
-            .await?;
-        self.repo_manager
-            .checkout_branch(&self.feature_branch)
-            .await?;
+    async fn create_branch(&self, branch_name: &str) -> Result<(), PrError> {
+        self.repo_manager.create_branch(branch_name).await?;
+        self.repo_manager.checkout_branch(branch_name).await?;
 
-        info!(
-            "Successfully created and checked out branch: {}",
-            self.feature_branch
-        );
         Ok(())
     }
 
@@ -206,11 +185,13 @@ impl PullRequestGenerator {
         for change in changes {
             self.repo_manager.add_file(&change.file_path).await?;
         }
+        let author_name = "queensac";
+        let author_email = "noreply@queens.ac";
 
         let commit_message = self.create_commit_message(changes);
 
         self.repo_manager
-            .commit(&commit_message, &self.author_name, &self.author_email)
+            .commit(&commit_message, author_name, author_email)
             .await?;
 
         info!("Successfully committed changes");
@@ -238,11 +219,9 @@ impl PullRequestGenerator {
     }
 
     /// Pushes the feature branch to the remote repository.
-    async fn push_to_remote(&self) -> Result<(), PrError> {
-        info!("Pushing branch {} to remote", self.feature_branch);
-
+    async fn push_to_remote(&self, branch_name: &str) -> Result<(), PrError> {
         self.repo_manager
-            .push("origin", &self.feature_branch, &self.github_token)
+            .push("origin", branch_name, &self.github_token)
             .await?;
 
         info!("Successfully pushed branch to remote");
@@ -250,7 +229,10 @@ impl PullRequestGenerator {
     }
 
     /// Generates a pull request via the GitHub API.
-    pub async fn generate_pull_request_via_api(&self) -> Result<String, PrError> {
+    pub async fn generate_pull_request_via_api(
+        &self,
+        branch_name: &str,
+    ) -> Result<String, PrError> {
         info!("Creating pull request via GitHub API");
 
         let (owner, repo) = self.get_repo_owner_and_name()?;
@@ -260,7 +242,7 @@ impl PullRequestGenerator {
             .pulls(owner.as_str(), repo.as_str())
             .create(
                 "fix: Update broken links",
-                self.feature_branch.as_str(),
+                branch_name,
                 self.base_branch.as_str(),
             )
             .body(self.create_pr_description())
@@ -307,6 +289,14 @@ This pull request was automatically generated to fix broken links in the reposit
     }
 }
 
+fn generate_branch_name() -> String {
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    format!("queensac-{}", now)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,8 +314,7 @@ mod tests {
             let repo_manager = RepoManager::from(&github_url).unwrap();
             let github_token = "queensac_test_token".to_string();
             let base_branch = "main".to_string();
-            let feature_branch = "queensac-test".to_string();
-            Self::new(repo_manager, github_token, base_branch, feature_branch)
+            Self::new(repo_manager, github_token, base_branch)
         }
     }
 
@@ -389,5 +378,11 @@ mod tests {
         assert!(description.contains("## 🔗 Link Fixes"));
         assert!(description.contains("This pull request was automatically generated"));
         assert!(description.contains("queens.ac"));
+    }
+
+    #[test]
+    fn test_generate_branch_name() {
+        let branch_name = generate_branch_name();
+        assert!(branch_name.starts_with("queensac-"));
     }
 }
