@@ -75,7 +75,6 @@ fn main() {
                     repo_manager,
                     github_token,
                     "main".to_string(),
-                    "queensac".to_string(),
                 );
                 let fixes = find_valid_links(invalid_links).await;
                 let pr_url = pr_generator.create_fix_pr(fixes).await;
