@@ -1,7 +1,7 @@
 use clap::Parser;
 use queensac::{
-    FileChange, GitHubUrl, InvalidLinkInfo, KoreanTime, PullRequestGenerator, RepoManager,
-    check_links,
+    FileChange, GitHubAppConfig, GitHubUrl, InvalidLinkInfo, KoreanTime, PullRequestGenerator,
+    RepoManager, check_links,
 };
 use tracing::{Level, error, info};
 
@@ -19,11 +19,6 @@ struct Args {
         help = "Dry run mode"
     )]
     dry_run: bool,
-    #[arg(
-        long = "github-token",
-        help = "GitHub API token for creating pull request"
-    )]
-    github_token: Option<String>,
 }
 
 fn main() {
@@ -69,13 +64,18 @@ fn main() {
                     return;
                 }
 
-                let github_token = args.github_token.expect("GitHub token is required. Use --github-token <token> to provide authentication.");
+                let app_config = GitHubAppConfig::from_env().unwrap_or_else(|e| {
+                    error!("GitHub App configuration not found: {}. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY environment variables.", e);
+                    std::process::exit(1);
+                });
 
-                let pr_generator = PullRequestGenerator::new(
-                    repo_manager,
-                    github_token,
-                    "main".to_string(),
-                );
+                // TODO find base branch from repository. 
+                let base_branch = args.branch.unwrap_or("main".to_string());
+
+                let pr_generator = PullRequestGenerator::new(repo_manager, app_config, base_branch).await.unwrap_or_else(|e| {
+                    error!("Failed to create PR generator: {}", e);
+                    std::process::exit(1);
+                });
                 let fixes = find_valid_links(invalid_links).await;
                 let pr_url = pr_generator.create_fix_pr(fixes).await;
                 match pr_url {
