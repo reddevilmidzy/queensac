@@ -1,9 +1,10 @@
 use crate::RepoManager;
 
-use octocrab::Octocrab;
+use octocrab::{Octocrab, models::InstallationToken, params::apps::CreateInstallationAccessToken};
 use std::{path::PathBuf, time::SystemTime};
 use thiserror::Error;
 use tracing::{error, info};
+use url::Url;
 
 /// Represents errors that can occur during pull request generation.
 #[derive(Debug, Error)]
@@ -27,33 +28,105 @@ pub struct FileChange {
     pub line_number: usize,
 }
 
+/// GitHub App configuration for authentication.
+#[derive(Debug, Clone)]
+pub struct GitHubAppConfig {
+    app_id: u64,
+    private_key: String,
+}
+
 /// Generates pull requests for link fixes in a repository.
 pub struct PullRequestGenerator {
     repo_manager: RepoManager,
     base_branch: String,
-    github_token: String,
     octocrab: Octocrab,
+    access_token: String,
+}
+
+impl GitHubAppConfig {
+    /// Creates a GitHub App configuration from environment variables.
+    ///
+    /// # Environment Variables
+    /// * `GITHUB_APP_ID` - The GitHub App ID
+    /// * `GITHUB_APP_PRIVATE_KEY` - The GitHub App private key (PEM format)
+    pub fn from_env() -> Result<Self, PrError> {
+        let app_id = read_env_var("GITHUB_APP_ID")?
+            .parse::<u64>()
+            .map_err(|e| PrError::Config(format!("Invalid GITHUB_APP_ID: {e}")))?;
+
+        let private_key = read_env_var("GITHUB_APP_PRIVATE_KEY")?;
+
+        Ok(Self {
+            app_id,
+            private_key,
+        })
+    }
 }
 
 impl PullRequestGenerator {
-    /// Creates a new PullRequestGenerator.
+    /// Creates a new PullRequestGenerator with GitHub App authentication.
     ///
     /// # Arguments
     /// * `repo_manager` - The repository manager instance
-    /// * `github_token` - GitHub API token
+    /// * `app_config` - GitHub App configuration
     /// * `base_branch` - The base branch for the pull request
-    pub fn new(repo_manager: RepoManager, github_token: String, base_branch: String) -> Self {
-        let octocrab = Octocrab::builder()
-            .personal_token(github_token.as_str())
-            .build()
-            .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
+    pub async fn new(
+        repo_manager: RepoManager,
+        app_config: GitHubAppConfig,
+        base_branch: String,
+    ) -> Result<Self, PrError> {
+        let key = jsonwebtoken::EncodingKey::from_rsa_pem(app_config.private_key.as_bytes())
+            .map_err(|e| PrError::Config(format!("Failed to parse private key: {e}")))?;
 
-        Self {
+        let octocrab = Octocrab::builder()
+            .app(app_config.app_id.into(), key)
+            .build()
+            .map_err(|e| PrError::Config(format!("Failed to build Octocrab instance: {e}")))?;
+
+        let installations = octocrab
+            .apps()
+            .installations()
+            .send()
+            .await
+            .map_err(|e| PrError::GitHub(format!("Failed to get installations: {e}")))?;
+
+        let installation = installations
+            .into_iter()
+            .find(|inst| {
+                inst.account
+                    .login
+                    .eq_ignore_ascii_case(repo_manager.get_github_url().owner())
+            })
+            .ok_or_else(|| PrError::GitHub("No GitHub App installation found".to_string()))?;
+
+        let mut create_access_token = CreateInstallationAccessToken::default();
+        create_access_token.repositories = vec![repo_manager.get_github_url().repo().to_string()];
+
+        let access_token_url =
+            Url::parse(installation.access_tokens_url.as_ref().ok_or_else(|| {
+                PrError::GitHub("Missing access_token_url in installation".to_string())
+            })?)
+            .map_err(|e| PrError::GitHub(format!("Failed to parse access token URL: {e}")))?;
+
+        let access_token: InstallationToken = octocrab
+            .post(access_token_url.path(), Some(&create_access_token))
+            .await
+            .map_err(|e| {
+                PrError::GitHub(format!("Failed to create installation access token: {e}"))
+            })?;
+
+        let octocrab = Octocrab::builder()
+            .personal_token(access_token.token.clone())
+            .build()
+            .map_err(|e| PrError::GitHub(format!("Failed to build Octocrab instance: {e}")))?;
+        let token_string = access_token.token;
+
+        Ok(Self {
             repo_manager,
             base_branch,
-            github_token,
             octocrab,
-        }
+            access_token: token_string,
+        })
     }
 
     /// Creates a pull request with link fixes.
@@ -65,8 +138,8 @@ impl PullRequestGenerator {
         self.create_branch(&branch_name).await?;
 
         let changes = self.apply_fixes(fixes).await?;
-
         self.commit_changes(&changes).await?;
+
         self.push_to_remote(branch_name.as_str()).await?;
 
         let pr_url = self
@@ -221,7 +294,7 @@ impl PullRequestGenerator {
     /// Pushes the feature branch to the remote repository.
     async fn push_to_remote(&self, branch_name: &str) -> Result<(), PrError> {
         self.repo_manager
-            .push("origin", branch_name, &self.github_token)
+            .push("origin", branch_name, &self.access_token)
             .await?;
 
         info!("Successfully pushed branch to remote");
@@ -233,8 +306,6 @@ impl PullRequestGenerator {
         &self,
         branch_name: &str,
     ) -> Result<String, PrError> {
-        info!("Creating pull request via GitHub API");
-
         let (owner, repo) = self.get_repo_owner_and_name()?;
 
         let pr = self
@@ -297,6 +368,11 @@ fn generate_branch_name() -> String {
     format!("queensac-{}", now)
 }
 
+fn read_env_var(var_name: &str) -> Result<String, PrError> {
+    std::env::var(var_name)
+        .map_err(|_| PrError::Config(format!("Missing environment variable: {var_name}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,9 +388,18 @@ mod tests {
                 None,
             );
             let repo_manager = RepoManager::from(&github_url).unwrap();
-            let github_token = "queensac_test_token".to_string();
             let base_branch = "main".to_string();
-            Self::new(repo_manager, github_token, base_branch)
+            let octocrab = Octocrab::builder()
+                .personal_token("test_token")
+                .build()
+                .unwrap();
+            let access_token = "test_token".to_string();
+            PullRequestGenerator {
+                repo_manager,
+                base_branch,
+                octocrab,
+                access_token,
+            }
         }
     }
 
@@ -355,18 +440,6 @@ mod tests {
         assert!(message.contains("fix: Update broken links"));
         assert!(message.contains("test.md:3"));
         assert!(message.contains("readme.md:10"));
-    }
-
-    #[tokio::test]
-    async fn test_create_pull_request_via_api_success() {
-        // This test would require mocking octocrab, which is complex
-        // For now, we'll test the method that extracts owner and repo
-        let generator = PullRequestGenerator::new_for_test();
-
-        // Test that the method can extract owner and repo from a path
-        // This is a simplified test since we can't easily mock octocrab
-        let result = generator.get_repo_owner_and_name();
-        assert!(result.is_ok());
     }
 
     #[tokio::test]
