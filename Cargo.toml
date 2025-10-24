@@ -8,7 +8,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-regex = "1.11"
+regex = "1.12"
 reqwest = { version = "0.12", features = ["json", "stream"] }
 tokio = { version = "1.48", features = ["full"] }
 tokio-util = "0.7"
