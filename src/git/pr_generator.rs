@@ -92,7 +92,11 @@ impl PullRequestGenerator {
 
         let installation = installations
             .into_iter()
-            .find(|inst| inst.account.login == repo_manager.get_github_url().owner())
+            .find(|inst| {
+                inst.account
+                    .login
+                    .eq_ignore_ascii_case(repo_manager.get_github_url().owner())
+            })
             .ok_or_else(|| PrError::GitHub("No GitHub App installation found".to_string()))?;
 
         let mut create_access_token = CreateInstallationAccessToken::default();
