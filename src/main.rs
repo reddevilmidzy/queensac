@@ -22,6 +22,7 @@ struct Args {
 }
 
 fn main() {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_target(false)
@@ -69,7 +70,7 @@ fn main() {
                     std::process::exit(1);
                 });
 
-                // TODO find base branch from repository. 
+                // TODO find base branch from repository.
                 let base_branch = args.branch.unwrap_or("main".to_string());
 
                 let pr_generator = PullRequestGenerator::new(repo_manager, app_config, base_branch).await.unwrap_or_else(|e| {

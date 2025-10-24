@@ -365,8 +365,6 @@ fn generate_branch_name() -> String {
 }
 
 fn read_env_var(var_name: &str) -> Result<String, PrError> {
-    dotenvy::dotenv().ok();
-
     std::env::var(var_name)
         .map_err(|_| PrError::Config(format!("Missing environment variable: {var_name}")))
 }
