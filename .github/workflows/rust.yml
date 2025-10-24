@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 permissions:
   contents: read
@@ -34,6 +34,13 @@ jobs:
           manifest-path: ./Cargo.toml
           command: check
           arguments: --all-features
+
+  machete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check for unused dependencies
+        uses: bnjbvr/cargo-machete@main
 
   lint:
     runs-on: ubuntu-latest
