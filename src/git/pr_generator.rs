@@ -76,12 +76,12 @@ impl PullRequestGenerator {
         base_branch: String,
     ) -> Result<Self, PrError> {
         let key = jsonwebtoken::EncodingKey::from_rsa_pem(app_config.private_key.as_bytes())
-            .unwrap_or_else(|e| panic!("Failed to parse private key: {e}"));
+            .map_err(|e| PrError::Config(format!("Failed to parse private key: {e}")))?;
 
         let octocrab = Octocrab::builder()
             .app(app_config.app_id.into(), key)
             .build()
-            .unwrap_or_else(|e| panic!("Failed to build Octocrab instance: {e}"));
+            .map_err(|e| PrError::Config(format!("Failed to build Octocrab instance: {e}")))?;
 
         let installations = octocrab
             .apps()
@@ -98,7 +98,10 @@ impl PullRequestGenerator {
         let mut create_access_token = CreateInstallationAccessToken::default();
         create_access_token.repositories = vec![repo_manager.get_github_url().repo().to_string()];
 
-        let access_token_url = Url::parse(installation.access_tokens_url.as_ref().unwrap())
+        let access_token_url =
+            Url::parse(installation.access_tokens_url.as_ref().ok_or_else(|| {
+                PrError::GitHub("Missing access_token_url in installation".to_string())
+            })?)
             .map_err(|e| PrError::GitHub(format!("Failed to parse access token URL: {e}")))?;
 
         let access_token: InstallationToken = octocrab
