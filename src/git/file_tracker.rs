@@ -125,14 +125,14 @@ mod tests {
             None,
         );
         let repo_manager = RepoManager::from(&github_url)?;
-        let commit = find_last_commit_id("main.rs", &repo_manager.get_repo())?;
+        let commit = find_last_commit_id("main.rs", repo_manager.get_repo())?;
         // see https://github.com/reddevilmidzy/kingsac/commit/2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7
         assert_eq!(
             commit.id().to_string(),
             "2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7"
         );
         assert_eq!(
-            track_file_rename_in_commit(&repo_manager.get_repo(), &commit, "main.rs")?,
+            track_file_rename_in_commit(repo_manager.get_repo(), &commit, "main.rs")?,
             Some("src/main.rs".to_string())
         );
 
@@ -180,9 +180,9 @@ mod tests {
         let repo_manager = RepoManager::from(&github_url)?;
 
         // 1. Find the commit where test_for_multiple_moves.rs was moved to foo/test_for_multiple_moves.rs
-        let commit = find_last_commit_id("test_for_multiple_moves.rs", &repo_manager.get_repo())?;
+        let commit = find_last_commit_id("test_for_multiple_moves.rs", repo_manager.get_repo())?;
         let new_path = track_file_rename_in_commit(
-            &repo_manager.get_repo(),
+            repo_manager.get_repo(),
             &commit,
             "test_for_multiple_moves.rs",
         )?;
@@ -190,9 +190,9 @@ mod tests {
 
         // 2. Find the commit where foo/test_for_multiple_moves.rs was moved to bar/test_for_multiple_moves.rs
         let commit =
-            find_last_commit_id("foo/test_for_multiple_moves.rs", &repo_manager.get_repo())?;
+            find_last_commit_id("foo/test_for_multiple_moves.rs", repo_manager.get_repo())?;
         let new_path = track_file_rename_in_commit(
-            &repo_manager.get_repo(),
+            repo_manager.get_repo(),
             &commit,
             "foo/test_for_multiple_moves.rs",
         )?;
@@ -200,17 +200,17 @@ mod tests {
 
         // 3. Verify that the file exists at the final location
         assert!(file_exists_in_repo(
-            &repo_manager.get_repo(),
+            repo_manager.get_repo(),
             "bar/test_for_multiple_moves.rs"
         )?);
 
         // 4. Verify that the file doesn't exist at the original location
         assert!(!file_exists_in_repo(
-            &repo_manager.get_repo(),
+            repo_manager.get_repo(),
             "test_for_multiple_moves.rs"
         )?);
         assert!(!file_exists_in_repo(
-            &repo_manager.get_repo(),
+            repo_manager.get_repo(),
             "foo/test_for_multiple_moves.rs"
         )?);
 
