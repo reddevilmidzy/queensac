@@ -1,9 +1,12 @@
+use chrono::{FixedOffset, Utc};
 use clap::Parser;
 use queensac::{
-    FileChange, GitHubAppConfig, GitHubUrl, InvalidLinkInfo, KoreanTime, PullRequestGenerator,
-    RepoManager, check_links,
+    FileChange, GitHubAppConfig, GitHubUrl, InvalidLinkInfo, PullRequestGenerator, RepoManager,
+    check_links,
 };
+use std::fmt;
 use tracing::{Level, error, info};
+use tracing_subscriber::fmt::{format::Writer, time::FormatTime};
 
 #[derive(Debug, Parser)]
 #[command(name = "queensac", about = "Link checker for a GitHub repo")]
@@ -111,4 +114,25 @@ async fn find_valid_links(invalid_links: Vec<InvalidLinkInfo>) -> Vec<FileChange
     }
 
     fixes
+}
+
+/// The offset in seconds for Korean Standard Time (UTC+9)
+const KST_OFFSET: i32 = 9 * 3600;
+
+/// A time formatter that outputs timestamps in Korean Standard Time (KST)
+///
+/// This struct implements the `FormatTime` trait to format timestamps in KST
+/// with millisecond precision and timezone offset.
+///
+/// # Format
+/// The output format is: `YYYY-MM-DDThh:mm:ss.sss+09:00`
+///
+/// It is used internally to format log timestamps in KST.
+struct KoreanTime;
+
+impl FormatTime for KoreanTime {
+    fn format_time(&self, w: &mut Writer<'_>) -> Result<(), fmt::Error> {
+        let now = Utc::now().with_timezone(&FixedOffset::east_opt(KST_OFFSET).unwrap());
+        write!(w, "{}", now.format("%Y-%m-%dT%H:%M:%S%.3f%:z"))
+    }
 }
