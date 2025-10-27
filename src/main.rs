@@ -127,14 +127,7 @@ const KST_OFFSET: i32 = 9 * 3600;
 /// # Format
 /// The output format is: `YYYY-MM-DDThh:mm:ss.sss+09:00`
 ///
-/// # Example
-/// ```
-/// use queensac::KoreanTime;
-/// use tracing_subscriber::fmt::time::FormatTime;
-///
-/// let formatter = KoreanTime;
-/// // Will output something like: 2024-02-14T15:30:45.123+09:00
-/// ```
+/// It is used internally to format log timestamps in KST.
 struct KoreanTime;
 
 impl FormatTime for KoreanTime {
