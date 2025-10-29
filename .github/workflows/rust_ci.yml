@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-      
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust-build"
@@ -62,7 +62,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-      
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust-build"
@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-      
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust-build"
