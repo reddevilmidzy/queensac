@@ -381,20 +381,34 @@ mod tests {
     impl PullRequestGenerator {
         #[cfg(test)]
         fn new_for_test() -> Self {
+            use crate::git::repo::TempDirGuard;
+            use git2::Repository;
+
+            let tmp = std::env::temp_dir().join(format!(
+                "github_repo_temp/reddevilmidzy/kingsac_{}",
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+
+            let guard = TempDirGuard::new(tmp.clone()).unwrap();
+            let repo = Repository::init(&tmp).unwrap();
             let github_url = GitHubUrl::new(
                 "reddevilmidzy".to_string(),
                 "kingsac".to_string(),
                 Some("main".to_string()),
                 None,
             );
-            let repo_manager = RepoManager::from(&github_url).unwrap();
+            let repo_manager = RepoManager::new(&github_url, repo, guard);
+
+            let access_token = "queensac_test_token".to_string();
             let base_branch = "main".to_string();
             let octocrab = Octocrab::builder()
-                .personal_token("test_token")
+                .personal_token(access_token.clone())
                 .build()
                 .unwrap();
-            let access_token = "test_token".to_string();
-            PullRequestGenerator {
+            Self {
                 repo_manager,
                 base_branch,
                 octocrab,
