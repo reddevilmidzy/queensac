@@ -258,8 +258,8 @@ impl PullRequestGenerator {
         for change in changes {
             self.repo_manager.add_file(&change.file_path).await?;
         }
-        let author_name = "queensac";
-        let author_email = "noreply@queens.ac";
+        let author_name = "queensac[bot]";
+        let author_email = "218335951+queensac[bot]@users.noreply.github.com";
 
         let commit_message = self.create_commit_message(changes);
 
