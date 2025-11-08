@@ -661,7 +661,7 @@ mod tests {
             .await;
 
         if let Err(ref e) = result {
-            eprintln!("Error: {:?}", e);
+            // Debug print removed as assertion below validates the result.
         }
         assert!(result.is_ok());
         let pr_url = result.unwrap();
