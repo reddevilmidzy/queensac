@@ -475,8 +475,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_success() {
-        use wiremock::{MockServer, Mock, ResponseTemplate};
         use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
 
         // Start a mock server
         let mock_server = MockServer::start().await;
@@ -630,9 +630,11 @@ mod tests {
         // Mount the mock
         Mock::given(method("POST"))
             .and(path("/repos/reddevilmidzy/kingsac/pulls"))
-            .respond_with(ResponseTemplate::new(201)
-                .set_body_string(pr_response)
-                .insert_header("content-type", "application/json"))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_string(pr_response)
+                    .insert_header("content-type", "application/json"),
+            )
             .mount(&mock_server)
             .await;
 
@@ -669,8 +671,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_no_html_url() {
-        use wiremock::{MockServer, Mock, ResponseTemplate};
         use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
 
         // Start a mock server
         let mock_server = MockServer::start().await;
@@ -823,9 +825,11 @@ mod tests {
         // Mount the mock
         Mock::given(method("POST"))
             .and(path("/repos/reddevilmidzy/kingsac/pulls"))
-            .respond_with(ResponseTemplate::new(201)
-                .set_body_string(pr_response)
-                .insert_header("content-type", "application/json"))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_string(pr_response)
+                    .insert_header("content-type", "application/json"),
+            )
             .mount(&mock_server)
             .await;
 
@@ -861,8 +865,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_failure() {
-        use wiremock::{MockServer, Mock, ResponseTemplate};
         use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
 
         // Start a mock server
         let mock_server = MockServer::start().await;
@@ -876,9 +880,11 @@ mod tests {
         // Mount the mock with error status
         Mock::given(method("POST"))
             .and(path("/repos/reddevilmidzy/kingsac/pulls"))
-            .respond_with(ResponseTemplate::new(422)
-                .set_body_string(error_response)
-                .insert_header("content-type", "application/json"))
+            .respond_with(
+                ResponseTemplate::new(422)
+                    .set_body_string(error_response)
+                    .insert_header("content-type", "application/json"),
+            )
             .mount(&mock_server)
             .await;
 
