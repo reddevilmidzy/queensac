@@ -377,6 +377,8 @@ fn read_env_var(var_name: &str) -> Result<String, PrError> {
 mod tests {
     use super::*;
     use crate::GitHubUrl;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     impl PullRequestGenerator {
         #[cfg(test)]
@@ -475,9 +477,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_success() {
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
         // Start a mock server
         let mock_server = MockServer::start().await;
 
@@ -671,9 +670,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_no_html_url() {
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
         // Start a mock server
         let mock_server = MockServer::start().await;
 
@@ -865,9 +861,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_pull_request_via_api_failure() {
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
         // Start a mock server
         let mock_server = MockServer::start().await;
 
