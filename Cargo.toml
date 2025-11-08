@@ -9,7 +9,7 @@ readme = "README.md"
 
 [dependencies]
 regex = "1.12"
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1.48", features = ["fs", "time"] }
 git2 = "0.20"
 tracing = "0.1"
