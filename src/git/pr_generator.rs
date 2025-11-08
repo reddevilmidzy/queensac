@@ -377,6 +377,8 @@ fn read_env_var(var_name: &str) -> Result<String, PrError> {
 mod tests {
     use super::*;
     use crate::GitHubUrl;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     impl PullRequestGenerator {
         #[cfg(test)]
@@ -471,5 +473,441 @@ mod tests {
     fn test_generate_branch_name() {
         let branch_name = generate_branch_name();
         assert!(branch_name.starts_with("queensac-"));
+    }
+
+    #[tokio::test]
+    async fn test_generate_pull_request_via_api_success() {
+        // Start a mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a complete mock response for PR creation matching GitHub's API
+        let pr_response = r#"{
+  "id": 1,
+  "node_id": "PR_kwDOABC123",
+  "number": 123,
+  "state": "open",
+  "locked": false,
+  "title": "fix: Update broken links",
+  "user": {
+    "login": "test-user",
+    "id": 1,
+    "node_id": "MDQ6VXNlcjE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/test-user",
+    "html_url": "https://github.com/test-user",
+    "followers_url": "https://api.github.com/users/test-user/followers",
+    "following_url": "https://api.github.com/users/test-user/following{/other_user}",
+    "gists_url": "https://api.github.com/users/test-user/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/test-user/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/test-user/subscriptions",
+    "organizations_url": "https://api.github.com/users/test-user/orgs",
+    "repos_url": "https://api.github.com/users/test-user/repos",
+    "events_url": "https://api.github.com/users/test-user/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/test-user/received_events",
+    "type": "User",
+    "site_admin": false
+  },
+  "body": "Test body",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "closed_at": null,
+  "merged_at": null,
+  "merge_commit_sha": null,
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [],
+  "requested_teams": [],
+  "labels": [],
+  "milestone": null,
+  "draft": false,
+  "commits_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123/commits",
+  "review_comments_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123/comments",
+  "review_comment_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/123/comments",
+  "statuses_url": "https://api.github.com/repos/reddevilmidzy/kingsac/statuses/abc123",
+  "head": {
+    "label": "reddevilmidzy:queensac-test-branch",
+    "ref": "queensac-test-branch",
+    "sha": "abc123def456",
+    "user": {
+      "login": "reddevilmidzy",
+      "id": 2,
+      "node_id": "MDQ6VXNlcjI=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/reddevilmidzy",
+      "html_url": "https://github.com/reddevilmidzy",
+      "followers_url": "https://api.github.com/users/reddevilmidzy/followers",
+      "following_url": "https://api.github.com/users/reddevilmidzy/following{/other_user}",
+      "gists_url": "https://api.github.com/users/reddevilmidzy/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/reddevilmidzy/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/reddevilmidzy/subscriptions",
+      "organizations_url": "https://api.github.com/users/reddevilmidzy/orgs",
+      "repos_url": "https://api.github.com/users/reddevilmidzy/repos",
+      "events_url": "https://api.github.com/users/reddevilmidzy/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/reddevilmidzy/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repo": null
+  },
+  "base": {
+    "label": "reddevilmidzy:main",
+    "ref": "main",
+    "sha": "def456abc123",
+    "user": {
+      "login": "reddevilmidzy",
+      "id": 2,
+      "node_id": "MDQ6VXNlcjI=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/reddevilmidzy",
+      "html_url": "https://github.com/reddevilmidzy",
+      "followers_url": "https://api.github.com/users/reddevilmidzy/followers",
+      "following_url": "https://api.github.com/users/reddevilmidzy/following{/other_user}",
+      "gists_url": "https://api.github.com/users/reddevilmidzy/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/reddevilmidzy/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/reddevilmidzy/subscriptions",
+      "organizations_url": "https://api.github.com/users/reddevilmidzy/orgs",
+      "repos_url": "https://api.github.com/users/reddevilmidzy/repos",
+      "events_url": "https://api.github.com/users/reddevilmidzy/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/reddevilmidzy/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repo": null
+  },
+  "_links": {
+    "self": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123"
+    },
+    "html": {
+      "href": "https://github.com/reddevilmidzy/kingsac/pull/123"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/123"
+    },
+    "comments": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/123/comments"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/comments{/number}"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123/commits"
+    },
+    "statuses": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/statuses/abc123def456"
+    }
+  },
+  "author_association": "OWNER",
+  "auto_merge": null,
+  "active_lock_reason": null,
+  "merged": false,
+  "mergeable": null,
+  "rebaseable": null,
+  "mergeable_state": "unknown",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "maintainer_can_modify": false,
+  "commits": 1,
+  "additions": 10,
+  "deletions": 5,
+  "changed_files": 2,
+  "url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/123",
+  "html_url": "https://github.com/reddevilmidzy/kingsac/pull/123",
+  "diff_url": "https://github.com/reddevilmidzy/kingsac/pull/123.diff",
+  "patch_url": "https://github.com/reddevilmidzy/kingsac/pull/123.patch",
+  "issue_url": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/123"
+}"#;
+
+        // Mount the mock
+        Mock::given(method("POST"))
+            .and(path("/repos/reddevilmidzy/kingsac/pulls"))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_string(pr_response)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        // Create a test generator with mock server
+        let generator = PullRequestGenerator::new_for_test();
+
+        // Override the octocrab instance to use the mock server
+        let octocrab = Octocrab::builder()
+            .base_uri(&mock_server.uri())
+            .unwrap()
+            .personal_token("test_token".to_string())
+            .build()
+            .unwrap();
+
+        let generator_with_mock = PullRequestGenerator {
+            repo_manager: generator.repo_manager,
+            base_branch: generator.base_branch,
+            octocrab,
+            access_token: generator.access_token,
+        };
+
+        // Test the PR generation
+        let result = generator_with_mock
+            .generate_pull_request_via_api("queensac-test-branch")
+            .await;
+
+        if let Err(ref e) = result {
+            // Debug print removed as assertion below validates the result.
+        }
+        assert!(result.is_ok());
+        let pr_url = result.unwrap();
+        assert_eq!(pr_url, "https://github.com/reddevilmidzy/kingsac/pull/123");
+    }
+
+    #[tokio::test]
+    async fn test_generate_pull_request_via_api_no_html_url() {
+        // Start a mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a complete mock response without html_url
+        let pr_response = r#"{
+  "id": 1,
+  "node_id": "PR_kwDOABC456",
+  "number": 456,
+  "state": "open",
+  "locked": false,
+  "title": "fix: Update broken links",
+  "user": {
+    "login": "test-user",
+    "id": 1,
+    "node_id": "MDQ6VXNlcjE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/test-user",
+    "html_url": "https://github.com/test-user",
+    "followers_url": "https://api.github.com/users/test-user/followers",
+    "following_url": "https://api.github.com/users/test-user/following{/other_user}",
+    "gists_url": "https://api.github.com/users/test-user/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/test-user/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/test-user/subscriptions",
+    "organizations_url": "https://api.github.com/users/test-user/orgs",
+    "repos_url": "https://api.github.com/users/test-user/repos",
+    "events_url": "https://api.github.com/users/test-user/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/test-user/received_events",
+    "type": "User",
+    "site_admin": false
+  },
+  "body": "Test body",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "closed_at": null,
+  "merged_at": null,
+  "merge_commit_sha": null,
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [],
+  "requested_teams": [],
+  "labels": [],
+  "milestone": null,
+  "draft": false,
+  "commits_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456/commits",
+  "review_comments_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456/comments",
+  "review_comment_url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/456/comments",
+  "statuses_url": "https://api.github.com/repos/reddevilmidzy/kingsac/statuses/abc123",
+  "head": {
+    "label": "reddevilmidzy:queensac-test-branch",
+    "ref": "queensac-test-branch",
+    "sha": "abc123def456",
+    "user": {
+      "login": "reddevilmidzy",
+      "id": 2,
+      "node_id": "MDQ6VXNlcjI=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/reddevilmidzy",
+      "html_url": "https://github.com/reddevilmidzy",
+      "followers_url": "https://api.github.com/users/reddevilmidzy/followers",
+      "following_url": "https://api.github.com/users/reddevilmidzy/following{/other_user}",
+      "gists_url": "https://api.github.com/users/reddevilmidzy/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/reddevilmidzy/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/reddevilmidzy/subscriptions",
+      "organizations_url": "https://api.github.com/users/reddevilmidzy/orgs",
+      "repos_url": "https://api.github.com/users/reddevilmidzy/repos",
+      "events_url": "https://api.github.com/users/reddevilmidzy/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/reddevilmidzy/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repo": null
+  },
+  "base": {
+    "label": "reddevilmidzy:main",
+    "ref": "main",
+    "sha": "def456abc123",
+    "user": {
+      "login": "reddevilmidzy",
+      "id": 2,
+      "node_id": "MDQ6VXNlcjI=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/reddevilmidzy",
+      "html_url": "https://github.com/reddevilmidzy",
+      "followers_url": "https://api.github.com/users/reddevilmidzy/followers",
+      "following_url": "https://api.github.com/users/reddevilmidzy/following{/other_user}",
+      "gists_url": "https://api.github.com/users/reddevilmidzy/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/reddevilmidzy/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/reddevilmidzy/subscriptions",
+      "organizations_url": "https://api.github.com/users/reddevilmidzy/orgs",
+      "repos_url": "https://api.github.com/users/reddevilmidzy/repos",
+      "events_url": "https://api.github.com/users/reddevilmidzy/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/reddevilmidzy/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "repo": null
+  },
+  "_links": {
+    "self": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456"
+    },
+    "html": {
+      "href": "https://github.com/reddevilmidzy/kingsac/pull/456"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/456"
+    },
+    "comments": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/456/comments"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/comments{/number}"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456/commits"
+    },
+    "statuses": {
+      "href": "https://api.github.com/repos/reddevilmidzy/kingsac/statuses/abc123def456"
+    }
+  },
+  "author_association": "OWNER",
+  "auto_merge": null,
+  "active_lock_reason": null,
+  "merged": false,
+  "mergeable": null,
+  "rebaseable": null,
+  "mergeable_state": "unknown",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "maintainer_can_modify": false,
+  "commits": 1,
+  "additions": 10,
+  "deletions": 5,
+  "changed_files": 2,
+  "url": "https://api.github.com/repos/reddevilmidzy/kingsac/pulls/456",
+  "diff_url": "https://github.com/reddevilmidzy/kingsac/pull/456.diff",
+  "patch_url": "https://github.com/reddevilmidzy/kingsac/pull/456.patch",
+  "issue_url": "https://api.github.com/repos/reddevilmidzy/kingsac/issues/456"
+}"#;
+
+        // Mount the mock
+        Mock::given(method("POST"))
+            .and(path("/repos/reddevilmidzy/kingsac/pulls"))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_string(pr_response)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        // Create a test generator with mock server
+        let generator = PullRequestGenerator::new_for_test();
+
+        let octocrab = Octocrab::builder()
+            .base_uri(&mock_server.uri())
+            .unwrap()
+            .personal_token("test_token".to_string())
+            .build()
+            .unwrap();
+
+        let generator_with_mock = PullRequestGenerator {
+            repo_manager: generator.repo_manager,
+            base_branch: generator.base_branch,
+            octocrab,
+            access_token: generator.access_token,
+        };
+
+        // Test the PR generation
+        let result = generator_with_mock
+            .generate_pull_request_via_api("queensac-test-branch")
+            .await;
+
+        assert!(result.is_err());
+        if let Err(PrError::GitHub(msg)) = result {
+            assert!(msg.contains("no URL returned"));
+        } else {
+            panic!("Expected GitHub error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_generate_pull_request_via_api_failure() {
+        // Start a mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a mock error response
+        let error_response = r#"{
+            "message": "Validation Failed",
+            "errors": [{"message": "A pull request already exists"}]
+        }"#;
+
+        // Mount the mock with error status
+        Mock::given(method("POST"))
+            .and(path("/repos/reddevilmidzy/kingsac/pulls"))
+            .respond_with(
+                ResponseTemplate::new(422)
+                    .set_body_string(error_response)
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&mock_server)
+            .await;
+
+        // Create a test generator with mock server
+        let generator = PullRequestGenerator::new_for_test();
+
+        let octocrab = Octocrab::builder()
+            .base_uri(&mock_server.uri())
+            .unwrap()
+            .personal_token("test_token".to_string())
+            .build()
+            .unwrap();
+
+        let generator_with_mock = PullRequestGenerator {
+            repo_manager: generator.repo_manager,
+            base_branch: generator.base_branch,
+            octocrab,
+            access_token: generator.access_token,
+        };
+
+        // Test the PR generation
+        let result = generator_with_mock
+            .generate_pull_request_via_api("queensac-test-branch")
+            .await;
+
+        assert!(result.is_err());
+        if let Err(PrError::GitHub(msg)) = result {
+            assert!(msg.contains("Failed to create PR"));
+        } else {
+            panic!("Expected GitHub error");
+        }
     }
 }
