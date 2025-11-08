@@ -103,14 +103,15 @@ fn main() {
 async fn find_valid_links(invalid_links: Vec<InvalidLinkInfo>) -> Vec<FileChange> {
     let mut fixes = Vec::new();
 
-    // TODO: Replace with actual valid link
     for invalid_link in invalid_links {
-        fixes.push(FileChange {
-            file_path: invalid_link.file_path,
-            old_content: invalid_link.url,
-            new_content: "https://correct_url.com".to_string(),
-            line_number: invalid_link.line_number,
-        });
+        if let Some(url) = invalid_link.collect_link {
+            fixes.push(FileChange {
+                file_path: invalid_link.file_path,
+                old_content: invalid_link.url,
+                new_content: url,
+                line_number: invalid_link.line_number,
+            });
+        }
     }
 
     fixes
