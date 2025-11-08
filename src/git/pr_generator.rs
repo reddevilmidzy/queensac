@@ -363,8 +363,8 @@ This pull request was automatically generated to fix broken links in the reposit
 fn generate_branch_name() -> String {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
     format!("queensac-{}", now)
 }
 
