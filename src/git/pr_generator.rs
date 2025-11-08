@@ -660,9 +660,6 @@ mod tests {
             .generate_pull_request_via_api("queensac-test-branch")
             .await;
 
-        if let Err(ref e) = result {
-            // Debug print removed as assertion below validates the result.
-        }
         assert!(result.is_ok());
         let pr_url = result.unwrap();
         assert_eq!(pr_url, "https://github.com/reddevilmidzy/kingsac/pull/123");
