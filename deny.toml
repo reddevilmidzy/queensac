@@ -8,7 +8,7 @@ feature-depth = 1
 db-urls = ["https://github.com/rustsec/advisory-db"]
 
 [licenses]
-unused-allowed-license = "warn"
+unused-allowed-license = "allow"
 allow = [
     "Apache-2.0",
     "MIT",
