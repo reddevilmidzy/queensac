@@ -25,6 +25,7 @@ pub struct InvalidLinkInfo {
     pub url: String,
     pub file_path: String,
     pub line_number: usize,
+    pub collect_link: Option<String>,
 }
 
 #[derive(Debug)]
@@ -154,11 +155,19 @@ pub async fn check_links(repo_manager: &RepoManager) -> Result<Vec<InvalidLinkIn
             "link check"
         );
 
+        let collect_link = match &result {
+            LinkCheckResult::Valid => None,
+            LinkCheckResult::Invalid(_) => None,
+            LinkCheckResult::Redirect(url) => Some(url.clone()),
+            LinkCheckResult::GitHubFileMoved(url) => Some(url.clone()),
+        };
+
         if !matches!(result, LinkCheckResult::Valid) {
             invalid_links.push(InvalidLinkInfo {
                 url: link.url,
                 file_path: link.file_path,
                 line_number: link.line_number,
+                collect_link,
             });
         }
     }
