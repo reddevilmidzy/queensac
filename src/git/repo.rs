@@ -1,4 +1,4 @@
-use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id, track_file_rename_in_commit};
+use crate::{GitHubUrl, file_exists_in_repo, find_last_commit_id};
 use git2::{
     BranchType, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature,
     build::CheckoutBuilder,
@@ -110,15 +110,15 @@ impl RepoManager {
                 return Ok(Some(current_path));
             }
 
-            let commit = match find_last_commit_id(&current_path, repo) {
-                Ok(commit) => commit,
+            let result = match find_last_commit_id(&current_path, repo) {
+                Ok(result) => result,
                 Err(e) => {
                     error!("Error finding last commit for {}: {}", current_path, e);
                     return Ok(None);
                 }
             };
 
-            match track_file_rename_in_commit(repo, &commit, &current_path)? {
+            match result.renamed_path {
                 Some(new_path) => {
                     current_path = new_path;
                 }
@@ -126,7 +126,7 @@ impl RepoManager {
                     error!(
                         "Could not find new path for {} in commit {}",
                         current_path,
-                        commit.id()
+                        result.commit.id()
                     );
                     return Ok(None);
                 }
@@ -399,7 +399,7 @@ mod tests {
     /// 1. Initially located at: tmp.txt (root directory)
     /// 2. First moved to: dockerfile_history/tmp.txt
     /// 3. Finally moved to: img/tmp.txt
-    fn test_find_current_location() {
+    fn test_find_current_location_file() {
         let url = GitHubUrl::parse(
             "https://github.com/reddevilmidzy/zero2prod/blob/test_for_queensac/tmp.txt",
         )
@@ -411,6 +411,19 @@ mod tests {
             repo_manager.find_current_location(&url).unwrap(),
             Some("img/tmp.txt".to_string())
         );
+    }
+
+    #[test]
+    fn test_find_current_location_directory() {
+        let url =
+            GitHubUrl::parse("https://github.com/reddevilmidzy/kingsac/tree/main/foo/intrinsics")
+                .unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
+
+        assert_eq!(
+            repo_manager.find_current_location(&url).unwrap(),
+            Some("foo/".to_string())
+        )
     }
 
     #[test]
