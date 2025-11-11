@@ -38,6 +38,7 @@ pub fn find_last_commit_id<'a>(
     target_file: &str,
     repo: &'a Repository,
 ) -> Result<CommitSearchResult<'a>, git2::Error> {
+    let target_path = path::Path::new(target_file);
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
@@ -59,8 +60,7 @@ pub fn find_last_commit_id<'a>(
 
                 // file check
                 if let Some(file_path) = delta.new_file().path()
-                    && let Some(file_path_str) = file_path.to_str()
-                    && file_path_str == target_file
+                    && file_path == target_path
                 {
                     return Ok(CommitSearchResult {
                         commit,
@@ -69,10 +69,9 @@ pub fn find_last_commit_id<'a>(
                 }
                 // directory check
                 if let Some(old_path) = delta.old_file().path()
-                    && let Some(old_path_str) = old_path.to_str()
-                    && old_path_str.starts_with(target_file)
+                    && old_path.starts_with(target_path)
                 {
-                    if old_path_str == target_file && delta.status() == Delta::Renamed {
+                    if old_path == target_path && delta.status() == Delta::Renamed {
                         renamed_path = delta
                             .new_file()
                             .path()
