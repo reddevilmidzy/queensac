@@ -28,11 +28,27 @@ pub fn find_last_commit_id<'a>(
             let prev_commit = commit.parent(0)?;
             let tree = commit.tree()?;
             let prev_tree = prev_commit.tree()?;
-            let diff = repo.diff_tree_to_tree(Some(&prev_tree), Some(&tree), None)?;
+            let mut diff = repo.diff_tree_to_tree(Some(&prev_tree), Some(&tree), None)?;
+
+            let mut find_opts = DiffFindOptions::new();
+            find_opts.rename_threshold(50); // Git default threshold 50%
+            diff.find_similar(Some(&mut find_opts))?;
             for delta in diff.deltas() {
+                // 고민해야 하는게, 디렉터리.
+                // 1. 디렉터리 이름이 변경 foo/bar1 -> foo/bar2
+                // 2. 디렉터리 삭제 foo/bar -> foo/
+
+                // file check
                 if let Some(file_path) = delta.new_file().path()
                     && let Some(file_path_str) = file_path.to_str()
                     && file_path_str == target_file
+                {
+                    return Ok(commit);
+                }
+                // directory check
+                if let Some(old_path) = delta.old_file().path()
+                    && let Some(old_path_str) = old_path.to_str()
+                    && old_path_str.starts_with(target_file)
                 {
                     return Ok(commit);
                 }
@@ -62,8 +78,7 @@ pub fn track_file_rename_in_commit(
     let mut diff_opts = DiffOptions::new();
 
     let mut find_opts = DiffFindOptions::new();
-    // TODO 적절한 값 찾기
-    find_opts.rename_threshold(28);
+    find_opts.rename_threshold(50);
 
     let parent = commit.parent(0)?;
     let tree = commit.tree()?;
@@ -73,14 +88,27 @@ pub fn track_file_rename_in_commit(
     diff.find_similar(Some(&mut find_opts))?;
 
     for delta in diff.deltas() {
-        if delta.status() == Delta::Renamed
-            && (delta.old_file().path().and_then(|p| p.to_str()) == Some(target_file))
-        {
-            return Ok(delta
-                .new_file()
-                .path()
-                .and_then(|p| p.to_str())
-                .map(|s| s.to_string()));
+        if delta.status() == Delta::Renamed {
+            if delta.old_file().path().and_then(|p| p.to_str()) == Some(target_file) {
+                return Ok(delta
+                    .new_file()
+                    .path()
+                    .and_then(|p| p.to_str())
+                    .map(|s| s.to_string()));
+            } else if let Some(old_path) = delta.old_file().path()
+                && let Some(old_path_str) = old_path.to_str()
+                && old_path_str.starts_with(target_file)
+            {
+                let path = delta.new_file().path().unwrap();
+                if let Some(parent) = path.parent() {
+                    let mut dir = parent.to_string_lossy().to_string();
+                    if !dir.ends_with('/') && !dir.ends_with('\\') {
+                        dir.push('/');
+                    }
+                    return Ok(Some(dir));
+                }
+                return Ok(None);
+            }
         }
     }
 

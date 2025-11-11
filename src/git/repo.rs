@@ -399,7 +399,7 @@ mod tests {
     /// 1. Initially located at: tmp.txt (root directory)
     /// 2. First moved to: dockerfile_history/tmp.txt
     /// 3. Finally moved to: img/tmp.txt
-    fn test_find_current_location() {
+    fn test_find_current_location_file() {
         let url = GitHubUrl::parse(
             "https://github.com/reddevilmidzy/zero2prod/blob/test_for_queensac/tmp.txt",
         )
@@ -411,6 +411,19 @@ mod tests {
             repo_manager.find_current_location(&url).unwrap(),
             Some("img/tmp.txt".to_string())
         );
+    }
+
+    #[test]
+    fn test_find_current_location_directory() {
+        let url =
+            GitHubUrl::parse("https://github.com/reddevilmidzy/kingsac/tree/main/foo/intrinsics")
+                .unwrap();
+        let repo_manager = RepoManager::from(&url).unwrap();
+
+        assert_eq!(
+            repo_manager.find_current_location(&url).unwrap(),
+            Some("foo/".to_string())
+        )
     }
 
     #[test]
