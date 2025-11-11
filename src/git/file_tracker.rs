@@ -1,28 +1,49 @@
-use git2::{Commit, Delta, DiffFindOptions, DiffOptions, ErrorCode, Repository};
+use git2::{Commit, Delta, DiffFindOptions, ErrorCode, Repository};
 use std::path;
 
-/// Finds the last commit ID that contains the target file
+/// Represents the result of searching for the last commit that touched a target path.
+///
+/// This struct contains both the commit that last modified the target path and,
+/// if the path was renamed in that commit, the new path it was renamed to.
+///
+/// # Fields
+/// * `commit` - The commit that last touched the target path
+/// * `renamed_path` - If the target path was renamed in this commit, contains the new path.
+///   For files, this is the full new file path. For directories, this is the new directory
+///   path with a trailing slash. If the path was not renamed, this is `None`.
+pub struct CommitSearchResult<'a> {
+    /// The commit that last touched the target path
+    pub commit: Commit<'a>,
+    /// The new path if the target was renamed in this commit, `None` otherwise
+    pub renamed_path: Option<String>,
+}
+
+/// This function searches through the commit history from HEAD backwards to find
+/// the most recent commit that modified the target path. It also detects if the
+/// path was renamed in that commit and returns the new path.
+///
+/// The function ignores merge commits (commits with 2+ parents) and initial commits
+/// (commits with 0 parents), following the same behavior as `git whatchanged`.
 ///
 /// # Arguments
-/// * `target_file` - The path to the target file
+/// * `target_file` - The path to the target file or directory to search for
 /// * `repo` - The repository to search in
 ///
 /// # Returns
-/// * `Ok(git2::Commit)` - The last commit ID that contains the target file
-/// * `Err(git2::Error)` - If there was an error accessing the repository
+/// * `Ok(CommitSearchResult)` - Contains the commit that last touched the target path
+///   and optionally the new path if it was renamed in that commit
+/// * `Err(git2::Error)` - If there was an error accessing the repository or if the
+///   target path was not found in the repository history
 pub fn find_last_commit_id<'a>(
     target_file: &str,
     repo: &'a Repository,
-) -> Result<Commit<'a>, git2::Error> {
+) -> Result<CommitSearchResult<'a>, git2::Error> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
     for commit_id in revwalk {
         let commit_id = commit_id?;
         let commit = repo.find_commit(commit_id)?;
-
-        // Ignore merge commits(2+ Parents) because that's what 'git whatchenged' does.
-        // Ignore commit with 0 parent (initial commit) because there's nothing to diff against.
 
         if commit.parent_count() == 1 {
             let prev_commit = commit.parent(0)?;
@@ -34,85 +55,49 @@ pub fn find_last_commit_id<'a>(
             find_opts.rename_threshold(50); // Git default threshold 50%
             diff.find_similar(Some(&mut find_opts))?;
             for delta in diff.deltas() {
-                // 고민해야 하는게, 디렉터리.
-                // 1. 디렉터리 이름이 변경 foo/bar1 -> foo/bar2
-                // 2. 디렉터리 삭제 foo/bar -> foo/
+                let mut renamed_path = None;
 
                 // file check
                 if let Some(file_path) = delta.new_file().path()
                     && let Some(file_path_str) = file_path.to_str()
                     && file_path_str == target_file
                 {
-                    return Ok(commit);
+                    return Ok(CommitSearchResult {
+                        commit,
+                        renamed_path: None,
+                    });
                 }
                 // directory check
                 if let Some(old_path) = delta.old_file().path()
                     && let Some(old_path_str) = old_path.to_str()
                     && old_path_str.starts_with(target_file)
                 {
-                    return Ok(commit);
-                }
-            }
-        }
-    }
-
-    Err(git2::Error::from_str("File not found"))
-}
-
-/// Finds the new path of a file that has been moved in a commit
-///
-/// # Arguments
-/// * `repo` - The repository to search in
-/// * `commit` - The commit to search in
-/// * `target_file` - The path to the target file
-///
-pub fn track_file_rename_in_commit(
-    repo: &Repository,
-    commit: &Commit,
-    target_file: &str,
-) -> Result<Option<String>, git2::Error> {
-    if commit.parent_count() != 1 {
-        return Ok(None);
-    }
-
-    let mut diff_opts = DiffOptions::new();
-
-    let mut find_opts = DiffFindOptions::new();
-    find_opts.rename_threshold(50);
-
-    let parent = commit.parent(0)?;
-    let tree = commit.tree()?;
-    let parent_tree = parent.tree()?;
-
-    let mut diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), Some(&mut diff_opts))?;
-    diff.find_similar(Some(&mut find_opts))?;
-
-    for delta in diff.deltas() {
-        if delta.status() == Delta::Renamed {
-            if delta.old_file().path().and_then(|p| p.to_str()) == Some(target_file) {
-                return Ok(delta
-                    .new_file()
-                    .path()
-                    .and_then(|p| p.to_str())
-                    .map(|s| s.to_string()));
-            } else if let Some(old_path) = delta.old_file().path()
-                && let Some(old_path_str) = old_path.to_str()
-                && old_path_str.starts_with(target_file)
-            {
-                let path = delta.new_file().path().unwrap();
-                if let Some(parent) = path.parent() {
-                    let mut dir = parent.to_string_lossy().to_string();
-                    if !dir.ends_with('/') && !dir.ends_with('\\') {
-                        dir.push('/');
+                    if old_path_str == target_file && delta.status() == Delta::Renamed {
+                        renamed_path = delta
+                            .new_file()
+                            .path()
+                            .and_then(|p| p.to_str())
+                            .map(|s| s.to_string());
+                    } else if delta.status() == Delta::Renamed
+                        && let Some(path) = delta.new_file().path()
+                        && let Some(parent) = path.parent()
+                    {
+                        let mut dir = parent.to_string_lossy().to_string();
+                        if !dir.ends_with('/') && !dir.ends_with('\\') {
+                            dir.push('/');
+                        }
+                        renamed_path = Some(dir);
                     }
-                    return Ok(Some(dir));
+
+                    return Ok(CommitSearchResult {
+                        commit,
+                        renamed_path,
+                    });
                 }
-                return Ok(None);
             }
         }
     }
-
-    Ok(None)
+    Err(git2::Error::from_str("File not found"))
 }
 
 /// Checks if a file exists in the repository at the given path
@@ -142,30 +127,6 @@ mod tests {
 
     use super::*;
     use serial_test::serial;
-
-    #[test]
-    #[serial]
-    fn test_track_file_rename_in_commit() -> Result<(), git2::Error> {
-        let github_url = GitHubUrl::new(
-            "reddevilmidzy".to_string(),
-            "kingsac".to_string(),
-            Some("main".to_string()),
-            None,
-        );
-        let repo_manager = RepoManager::from(&github_url)?;
-        let commit = find_last_commit_id("main.rs", repo_manager.get_repo())?;
-        // see https://github.com/reddevilmidzy/kingsac/commit/2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7
-        assert_eq!(
-            commit.id().to_string(),
-            "2f3e99cbea53c55c8428d5bc11bfe7f1ff5cccd7"
-        );
-        assert_eq!(
-            track_file_rename_in_commit(repo_manager.get_repo(), &commit, "main.rs")?,
-            Some("src/main.rs".to_string())
-        );
-
-        Ok(())
-    }
 
     #[test]
     #[serial]
@@ -208,23 +169,19 @@ mod tests {
         let repo_manager = RepoManager::from(&github_url)?;
 
         // 1. Find the commit where test_for_multiple_moves.rs was moved to foo/test_for_multiple_moves.rs
-        let commit = find_last_commit_id("test_for_multiple_moves.rs", repo_manager.get_repo())?;
-        let new_path = track_file_rename_in_commit(
-            repo_manager.get_repo(),
-            &commit,
-            "test_for_multiple_moves.rs",
-        )?;
-        assert_eq!(new_path, Some("foo/test_for_multiple_moves.rs".to_string()));
+        let result = find_last_commit_id("test_for_multiple_moves.rs", repo_manager.get_repo())?;
+        assert_eq!(
+            result.renamed_path,
+            Some("foo/test_for_multiple_moves.rs".to_string())
+        );
 
         // 2. Find the commit where foo/test_for_multiple_moves.rs was moved to bar/test_for_multiple_moves.rs
-        let commit =
+        let result =
             find_last_commit_id("foo/test_for_multiple_moves.rs", repo_manager.get_repo())?;
-        let new_path = track_file_rename_in_commit(
-            repo_manager.get_repo(),
-            &commit,
-            "foo/test_for_multiple_moves.rs",
-        )?;
-        assert_eq!(new_path, Some("bar/test_for_multiple_moves.rs".to_string()));
+        assert_eq!(
+            result.renamed_path,
+            Some("bar/test_for_multiple_moves.rs".to_string())
+        );
 
         // 3. Verify that the file exists at the final location
         assert!(file_exists_in_repo(
