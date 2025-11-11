@@ -6,6 +6,7 @@ edition = "2024"
 repository = "https://github.com/reddevilmidzy/queensac"
 license = "Apache-2.0"
 readme = "README.md"
+rust-version = "1.88.0"
 
 [dependencies]
 regex = "1.12"
