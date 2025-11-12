@@ -69,7 +69,7 @@ fn main() {
                 }
 
                 let app_config = GitHubAppConfig::from_env().unwrap_or_else(|e| {
-                    error!("GitHub App configuration not found: {}. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY environment variables.", e);
+                    error!("GitHub App configuration not found: {}. Please set QUEENSAC_APP_ID and QUEENSAC_APP_PRIVATE_KEY environment variables.", e);
                     std::process::exit(1);
                 });
 
