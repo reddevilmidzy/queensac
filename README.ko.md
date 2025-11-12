@@ -31,7 +31,9 @@ GitHub Workflow에 아래의 내용을 추가합니다.
 - name: 👑 Run queensac
   uses: reddevilmidzy/queensac@v1
   with:
-    github_token: ${{ secrets.GITHUB_TOKEN }}
+    github_app_id: ${{ secrets.QUEENSAC_APP_ID }}
+    github_app_private_key: ${{ secrets.QUEENSAC_APP_PRIVATE_KEY }}
+    repo: https://github.com/${{ github.repository }}
 ```
 
 ## Contributing

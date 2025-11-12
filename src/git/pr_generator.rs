@@ -47,14 +47,14 @@ impl GitHubAppConfig {
     /// Creates a GitHub App configuration from environment variables.
     ///
     /// # Environment Variables
-    /// * `GITHUB_APP_ID` - The GitHub App ID
-    /// * `GITHUB_APP_PRIVATE_KEY` - The GitHub App private key (PEM format)
+    /// * `QUEENSAC_APP_ID` - The GitHub App ID
+    /// * `QUEENSAC_APP_PRIVATE_KEY` - The GitHub App private key (PEM format)
     pub fn from_env() -> Result<Self, PrError> {
-        let app_id = read_env_var("GITHUB_APP_ID")?
+        let app_id = read_env_var("QUEENSAC_APP_ID")?
             .parse::<u64>()
-            .map_err(|e| PrError::Config(format!("Invalid GITHUB_APP_ID: {e}")))?;
+            .map_err(|e| PrError::Config(format!("Invalid QUEENSAC_APP_ID: {e}")))?;
 
-        let private_key = read_env_var("GITHUB_APP_PRIVATE_KEY")?;
+        let private_key = read_env_var("QUEENSAC_APP_PRIVATE_KEY")?;
 
         Ok(Self {
             app_id,
