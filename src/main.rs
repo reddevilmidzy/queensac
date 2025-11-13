@@ -29,7 +29,6 @@ fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_target(false)
-        .with_thread_ids(true)
         .with_level(true)
         .with_ansi(true)
         .with_timer(KoreanTime)
