@@ -138,6 +138,13 @@ impl PullRequestGenerator {
         self.create_branch(&branch_name).await?;
 
         let changes = self.apply_fixes(fixes).await?;
+        
+        // Check if there are any changes before proceeding with commit, push, and PR
+        if changes.is_empty() {
+            info!("No file changes to commit. Skipping push and PR creation.");
+            return Err(PrError::Config("No changes to create PR".to_string()));
+        }
+        
         self.commit_changes(&changes).await?;
 
         self.push_to_remote(branch_name.as_str()).await?;
@@ -905,6 +912,50 @@ mod tests {
             assert!(msg.contains("Failed to create PR"));
         } else {
             panic!("Expected GitHub error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_fix_pr_with_no_changes() {
+        use std::fs;
+        
+        let generator = PullRequestGenerator::new_for_test();
+
+        // Initialize the repository with an initial commit
+        let test_file = generator.repo_manager.get_repo_path().join("README.md");
+        fs::write(&test_file, "# Test Repository").unwrap();
+        
+        // Create initial commit
+        let repo = generator.repo_manager.get_repo();
+        let mut index = repo.index().unwrap();
+        index.add_path(std::path::Path::new("README.md")).unwrap();
+        index.write().unwrap();
+        
+        let signature = git2::Signature::now("Test User", "test@example.com").unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        
+        // Create initial commit with no parent
+        repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "Initial commit",
+            &tree,
+            &[],
+        ).unwrap();
+
+        // Create an empty fixes vector - this simulates the case where no changes are needed
+        let fixes = vec![];
+
+        // Test that create_fix_pr returns an error when there are no changes
+        let result = generator.create_fix_pr(fixes).await;
+
+        assert!(result.is_err());
+        if let Err(PrError::Config(msg)) = result {
+            assert!(msg.contains("No changes to create PR"));
+        } else {
+            panic!("Expected Config error for no changes, got: {:?}", result);
         }
     }
 }
