@@ -4,6 +4,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/reddevilmidzy/queensac/badge.svg?branch=main)](https://coveralls.io/github/reddevilmidzy/queensac?branch=main)
 [![ci](https://github.com/reddevilmidzy/queensac/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/reddevilmidzy/queensac/actions/workflows/rust_ci.yml)
 [![release](https://img.shields.io/github/v/release/reddevilmidzy/queensac?label=release)](https://github.com/reddevilmidzy/queensac/releases)
+[![MSRV](https://img.shields.io/badge/rust-1.88.0%2B-blue.svg)](https://www.rust-lang.org)
 
 <br>
 
