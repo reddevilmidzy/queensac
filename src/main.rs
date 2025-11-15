@@ -77,6 +77,10 @@ fn main() {
                     std::process::exit(1);
                 });
                 let fixes = find_valid_links(invalid_links).await;
+                if fixes.is_empty() {
+                    info!("No fixable links found. Skipping pull request creation");
+                    return;
+                }
                 let pr_url = pr_generator.create_fix_pr(fixes).await;
                 match pr_url {
                     Ok(url) => {
