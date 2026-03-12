@@ -20,6 +20,8 @@ pub struct LinkInfo {
 impl PartialEq for LinkInfo {
     fn eq(&self, other: &Self) -> bool {
         self.url == other.url
+            && self.file_path == other.file_path
+            && self.line_number == other.line_number
     }
 }
 
@@ -28,6 +30,8 @@ impl Eq for LinkInfo {}
 impl std::hash::Hash for LinkInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.url.hash(state);
+        self.file_path.hash(state);
+        self.line_number.hash(state);
     }
 }
 
@@ -107,8 +111,8 @@ mod tests {
         let file_path = "test.txt".to_string();
         let links = find_link_in_content(content, file_path);
 
-        // Should have exactly 3 unique URLs
-        assert_eq!(links.len(), 3, "Expected 3 unique URLs");
+        // Should include each unique link occurrence by location
+        assert_eq!(links.len(), 5, "Expected 5 unique link occurrences");
 
         // Verify each URL exists
         let urls: Vec<String> = links.iter().map(|link| link.url.clone()).collect();
@@ -162,8 +166,27 @@ mod tests {
         links.insert(link1);
         links.insert(link2);
 
-        // Should only have one entry because URLs are the same
-        assert_eq!(links.len(), 1, "Expected only one unique URL entry");
+        // Should have two entries because link locations are different
+        assert_eq!(
+            links.len(),
+            2,
+            "Expected two unique link entries for different locations"
+        );
+
+        // Same URL, same file path, same line number => deduplicated
+        let link2_duplicate = LinkInfo {
+            url: "https://example.com".to_string(),
+            file_path: "file2.txt".to_string(),
+            line_number: 2,
+        };
+
+        links.insert(link2_duplicate);
+
+        assert_eq!(
+            links.len(),
+            2,
+            "Expected duplicates at identical location to be deduplicated"
+        );
 
         // Different URL
         let link3 = LinkInfo {
@@ -174,8 +197,20 @@ mod tests {
 
         links.insert(link3);
 
-        // Should now have two entries because URLs are different
-        assert_eq!(links.len(), 2, "Expected two unique URL entries");
+        // Should now have three entries because URL is different
+        assert_eq!(links.len(), 3, "Expected three unique link entries");
+    }
+
+    #[test]
+    fn test_find_link_in_content_deduplicates_same_line_same_url() {
+        let content = "https://example.com https://example.com";
+        let links = find_link_in_content(content, "test.txt".to_string());
+
+        assert_eq!(
+            links.len(),
+            1,
+            "Expected duplicate URLs at the same file/line to be deduplicated"
+        );
     }
 
     #[test]
