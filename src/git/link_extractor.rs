@@ -43,7 +43,7 @@ pub fn extract_links_from_repo(
         && let Ok(tree) = head.peel_to_tree()
     {
         tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
-            if let Some(name) = entry.name() {
+            if let Ok(name) = entry.name() {
                 let file_path = if dir.is_empty() {
                     name.to_string()
                 } else {

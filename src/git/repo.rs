@@ -167,7 +167,7 @@ impl RepoManager {
 
         match reference {
             Some(reference) => {
-                if let Some(name) = reference.name() {
+                if let Ok(name) = reference.name() {
                     self.repo.set_head(name)?;
                 } else {
                     return Err(git2::Error::from_str("Could not get branch name"));
@@ -274,9 +274,7 @@ impl RepoManager {
     /// Gets the current branch name
     pub fn get_current_branch(&self) -> Result<String, git2::Error> {
         let head = self.repo.head()?;
-        let branch_name = head
-            .shorthand()
-            .ok_or_else(|| git2::Error::from_str("Could not get branch name"))?;
+        let branch_name = head.shorthand()?;
 
         Ok(branch_name.to_string())
     }

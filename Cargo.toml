@@ -12,7 +12,7 @@ rust-version = "1.88.0"
 regex = "1.12"
 reqwest = "0.12"
 tokio = { version = "1.48", features = ["fs", "rt", "rt-multi-thread", "time"] }
-git2 = "0.20"
+git2 = "0.21"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4.41", features = ["serde"] }
