@@ -10,3 +10,4 @@ rust-version = "1.88.0"
 
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
+git2 = { version = "0.10.2" }
